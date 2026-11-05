@@ -36,7 +36,7 @@ export FAKE_GH_LOG="$TMP/gh.log" FAKE_GH_CREATE="$TMP/gh.create" FAKE_GH_NOTES="
 fresh() { # temiz depo + yerel bare origin (main, takip ediyor)
   rm -rf "$TMP/r" "$TMP/o.git" "$TMP/gh.log" "$TMP/gh.create" "$TMP/gh.notes" && mkdir -p "$TMP/r"
   git init -q --bare "$TMP/o.git"
-  (cd "$ROOT" && tar --exclude=.git --exclude=.venv --exclude=dist -cf - .) | tar -xf - -C "$TMP/r"
+  (cd "$ROOT" && tar --exclude=.git --exclude=.venv --exclude=dist --exclude=.state -cf - .) | tar -xf - -C "$TMP/r"
   (cd "$TMP/r" && git init -q -b main && git add -A \
     && git -c user.email=t@t -c user.name=t commit -qm base \
     && git remote add origin "$TMP/o.git" && git push -q -u origin main)
