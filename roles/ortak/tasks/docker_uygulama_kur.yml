@@ -23,11 +23,16 @@
     label: "{{ item.path }}"
   register: kd_uygulama_dizinleri
 
-- name: Secrets and connection keys
+# Döngü YOK: include_role'u döngüye sokmak iç döngülerin `item`ini gölgeler (ansible uyarısı); iki ayrı görev.
+- name: Secrets
   ansible.builtin.include_role:
     name: env_dosyalari
-    tasks_from: "{{ item }}"
-  loop: [gizli, ortak]
+    tasks_from: gizli
+
+- name: Connection keys
+  ansible.builtin.include_role:
+    name: env_dosyalari
+    tasks_from: ortak
 
 - name: Docker network
   ansible.builtin.shell: |
@@ -67,7 +72,7 @@
   when: not ansible_check_mode and (kd_compose is changed or kurulum_calisiyor.stdout | default('') | trim == '')
 
 - name: Wait until the container is running and healthy
-  ansible.builtin.shell: >-
+  ansible.builtin.command: >-
     docker inspect -f '{% raw %}{{.State.Running}} {{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}{% endraw %}' kurulum-{{ k_yz }}
   register: kurulum_saglik
   until: kurulum_saglik.stdout in ['true healthy', 'true none']

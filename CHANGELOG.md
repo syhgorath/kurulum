@@ -25,8 +25,15 @@ Biçim [Keep a Changelog](https://keepachangelog.com/) esas alınmıştır.
 - `test/test_static.sh`: `down -v`, `purge`, `latest`, adlandırılmış volume, ufw yazımı, docker grubu, docker.sock, privileged desenleri yok; Docker anahtar parmak izi beklenen değer.
 - Docker resmi apt deposunun Debian 13 (`trixie`) için varlığı ve `docker-ce` adayı `apt -s` ile görüldü; **gerçek kurulum denenmedi**.
 
+- Gerçek VM (ubuntutest, Ubuntu 26.04 amd64, doğrudan playbook; kısmi tur): `durum` (ana_durum=yeni docker=yok), Docker taban preview/kur ve ikinci kur changed=0, nginx docker kur + ikinci kur changed=0, MariaDB docker 10.11.19 kur + parola sızıntı testi (0 eşleşme) + yükseltme 10.11.19→11.4.13 (dump 0600/0700, veri 42, parola yeniden üretilmedi) + yükseltme sonrası kur changed=0.
+
+### Düzeltilen (VM turu ve uyarı taraması)
+- `env_dosyalari`: `include_role`'u döngüye sokmak iç döngülerin `item`ini gölgeliyordu (`[WARNING]: The variable 'item' is already in use`); döngü iki ayrı göreve çevrildi. Tüm koşuların çıktısında `[WARNING]`/`[DEPRECATION WARNING]` olmaması artık bats testidir; `ansible.cfg`'de `deprecation_warnings` açıldı.
+- "Wait until healthy" görevi `shell` yerine `command`; yalnızca yükselt'te çalışan yedek/pull görevlerine `--check` koruması.
+- `docs/vm-turu.md`: glob'lu yedek doğrulaması ve parola sızıntı kontrolü komutları (yetkisiz kabuk glob'u, `ssh -t` ile stdin) düzeltildi; `durum` için `--ask-become-pass` açıkça yazıldı.
+
 ### Düzeltilen (LAB'da bulundu)
 - Yarım kalan koşu (örn. port çakışması) sunucuda yalnız `/etc/kurulum/ana` bırakıp işareti yazmıyordu; sonraki koşular "işaret yok" diye kilitleniyordu. İlk işaret artık ana klasörle birlikte yazılır.
 
 ### Denenmedi
-- Gerçek VM (ubuntutest, debiantest), hardening'li iki sıralı tur, VM'de yükseltme testi; Debian 13 (konteyner dahil); amd64; sshpocket menüsünden uçtan uca; `kurulum_docker_kaynak=dagitim` (docker.io) yolu; `/tmp` noexec ile MariaDB/nginx/`docker pull`; AppArmor enforce ile native MariaDB; `DOCKER-USER` ile ufw kısıtlama; `kurulum_<yz>_imaj_ozel` ile listede olmayan sürüm; snap Docker algılaması (kodda var, test edilmedi).
+- Gerçek VM'de Redis/nginx yükseltme, `kaldir` + yeniden kur, native modlar; debiantest; hardening'li iki sıralı tur; Debian 13 (konteyner dahil); amd64; sshpocket menüsünden uçtan uca; `kurulum_docker_kaynak=dagitim` (docker.io) yolu; `/tmp` noexec ile MariaDB/nginx/`docker pull`; AppArmor enforce ile native MariaDB; `DOCKER-USER` ile ufw kısıtlama; `kurulum_<yz>_imaj_ozel` ile listede olmayan sürüm; snap Docker algılaması (kodda var, test edilmedi).

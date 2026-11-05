@@ -29,6 +29,7 @@
   ansible.builtin.command: docker pull {{ k_imaj }}
   register: kd_imaj_cek
   changed_when: "'Downloaded newer image' in kd_imaj_cek.stdout"
+  when: not ansible_check_mode
 
 - name: Apply the new version
   ansible.builtin.include_tasks: "{{ playbook_dir }}/../roles/ortak/tasks/docker_uygulama_kur.yml"
