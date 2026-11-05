@@ -38,3 +38,14 @@
     group: root
     mode: "0640"
   register: kd_ortak_env
+
+# İlk işaret ana klasörle BİRLİKTE yazılır: yazılım rolü sonradan düşse bile sunucuda "locator var, işaret yok" yarım durumu kalmaz.
+- name: Write the initial marker (only when absent)
+  ansible.builtin.copy:
+    dest: "{{ k_ana }}/.kurulum"
+    content: "{{ {'ana_klasor': k_ana, 'olusturma': ansible_facts['date_time']['iso8601'], 'surum': kurulum_surumi, 'yazilimlar': {}, 'kaldirilan': {}} | to_nice_json(indent=2, sort_keys=True) }}\n"
+    force: false
+    owner: root
+    group: root
+    mode: "0640"
+  register: kd_ilk_isaret

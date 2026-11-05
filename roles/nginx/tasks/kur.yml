@@ -52,6 +52,8 @@
         src: /etc/nginx/sites-available/kurulum
         dest: /etc/nginx/sites-enabled/kurulum
         state: link
+      # --check'te paket (ve sites-available) henüz yoksa bağ kurulamaz; önizleme "site + bağ yazılacak" der
+      when: not (ansible_check_mode and kd_nginx_site is changed and kurulum_paket_var.stdout == '0')
       register: kd_nginx_bag
     - name: Disable the distribution default site (link only; file stays)
       ansible.builtin.file:
