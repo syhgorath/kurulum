@@ -27,6 +27,11 @@ Biçim [Keep a Changelog](https://keepachangelog.com/) esas alınmıştır.
 
 - Gerçek VM (ubuntutest, Ubuntu 26.04 amd64, doğrudan playbook; kısmi tur): `durum` (ana_durum=yeni docker=yok), Docker taban preview/kur ve ikinci kur changed=0, nginx docker kur + ikinci kur changed=0, MariaDB docker 10.11.19 kur + parola sızıntı testi (0 eşleşme) + yükseltme 10.11.19→11.4.13 (dump 0600/0700, veri 42, parola yeniden üretilmedi) + yükseltme sonrası kur changed=0.
 
+### Düzeltilen (VM turu: V01-REDIS-NATIVE-PREVIEW ve nginx healthcheck)
+- **Redis native `preview` temiz sunucuda düşüyordu** (`Destination /etc/redis/redis.conf does not exist`): `--check`'te apt paketi kurmaz, `lineinfile` olmayan dosyaya yazamaz (artık `<ana>/redis/.env` bulunduğunda, örn. kaldırılmış Redis sonrası). Menüde `kur` `preview` ön koşuludur, bu yüzden temiz sunucuda native Redis menüden kurulamazdı. nginx'teki kalıp Redis'e de eklendi.
+- Yeni `test/e2e/lab-preview.bats`: her yazılım x mod için temiz sunucuda `preview` başarılı ve sunucuya yazmaz (dosya özeti, paket ve konteyner sayısı aynı). **Mutasyonla sınandı:** düzeltme geri alınınca "artık .env varken redis native preview" testi VM'deki hatayla kırmızı oldu. Not: temiz LAB'da (artık `.env` yokken) hata görünmezdi; önceki LAB testleri bu yüzden kaçırmıştı.
+- nginx docker modunda healthcheck eklendi (mariadb/redis ile tutarlı); "Wait until healthy" artık nginx'te de gerçek sağlığı bekler. Mevcut nginx docker kurulumlarında bir sonraki `kur` compose.yml değişince konteyneri yeniden oluşturur (kısa kesinti).
+
 ### Düzeltilen (VM turu ve uyarı taraması)
 - `env_dosyalari`: `include_role`'u döngüye sokmak iç döngülerin `item`ini gölgeliyordu (`[WARNING]: The variable 'item' is already in use`); döngü iki ayrı göreve çevrildi. Tüm koşuların çıktısında `[WARNING]`/`[DEPRECATION WARNING]` olmaması artık bats testidir; `ansible.cfg`'de `deprecation_warnings` açıldı.
 - "Wait until healthy" görevi `shell` yerine `command`; yalnızca yükselt'te çalışan yedek/pull görevlerine `--check` koruması.

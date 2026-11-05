@@ -60,7 +60,7 @@ Ayrıntı sonuçlar CHANGELOG'dadır. Özet:
 | Ne | Sonuç |
 |---|---|
 | `component_validate.py . --strict --unsigned` (`git archive` arşivi) | temiz |
-| LAB (Colima + systemd'li `ubuntu:26.04` arm64 konteyneri, iç içe Docker): `lab-docker.bats` / `lab-native.bats` | 20/20 ve 10/10: idempotans, yükseltmede veri duruyor, kaldır veriyi bırakır, parola sızmıyor (ayrıntı CHANGELOG) |
+| LAB (Colima + systemd'li `ubuntu:26.04` arm64 konteyneri, iç içe Docker): `lab-docker.bats` / `lab-native.bats` / `lab-preview.bats` | 21/21, 11/11 ve 8/8: idempotans, yükseltmede veri duruyor, kaldır veriyi bırakır, parola sızmıyor (ayrıntı CHANGELOG) |
 | `test/run-all.sh` (statik desen denetimi, release betikleri, tutarlılık) | yeşil |
 | **Gerçek VM** ubuntutest (Ubuntu 26.04 **amd64**, hardening'siz, doğrudan playbook, `sudo.ws`) | ✅ `durum` (temiz VM); Docker taban `preview` ve `kur` (docker-ce 29.9.3, Compose v5.7.0, resmi depo, anahtar paketten), **ikinci `kur` changed=0**; nginx docker kur (200, `127.0.0.1:8080`) ve ikinci kur changed=0; MariaDB docker 10.11.19 kur, **parola sızıntı testi 0 eşleşme**, **yükseltme 10.11.19→11.4.13** (döküm alındı, veri `42` duruyor, parola yeniden üretilmedi), yükseltme sonrası kur changed=0 |
 | Gerçek VM: Redis/nginx yükseltme, `kaldir` + yeniden kur, native modlar, debiantest, hardening'li iki sıralı tur, sshpocket menüsü | **denenmedi** |
@@ -72,7 +72,7 @@ Ayrıntı sonuçlar CHANGELOG'dadır. Özet:
 python3.13 -m venv .venv && .venv/bin/pip install --require-hashes --only-binary :all: -r requirements.txt
 python3 -I tools/validate/component_validate.py . --strict --unsigned
 test/run-all.sh
-LAB_CA_FILE=<gerekirse kök sertifika.pem> bats test/e2e/lab-docker.bats test/e2e/lab-native.bats   # Colima/Docker gerekir
+LAB_CA_FILE=<gerekirse kök sertifika.pem> bats test/e2e/lab-docker.bats test/e2e/lab-native.bats test/e2e/lab-preview.bats   # Colima/Docker gerekir
 ```
 LAB notu: iç içe Docker için `/var/lib/docker` ve `/var/lib/containerd` ayrı volume'dür (yalnızca LAB; gerçek VM'de gerekmez). Ağda TLS'i araya giren bir güvenlik yazılımı varsa kök sertifikası yalnızca LAB konteynerine eklenir (`LAB_CA_FILE`); doğrulama kapatılmaz, paket buna bağımlı değildir.
 Yayın: `scripts/release.sh` / `release-publish.sh` (imza anahtarı ve yayın **kullanıcıdadır**). Kilit PR'ı: `scripts/lock-component.sh kurulum <sürüm> --repo syhgorath/kurulum` (sshpocket oturumu).

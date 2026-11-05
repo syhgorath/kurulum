@@ -46,7 +46,10 @@
         - { regexp: '^requirepass ', line: "requirepass {{ kurulum_redis_parola.stdout | default('') }}", after: '^# requirepass' }
       loop_control:
         label: "{{ item.regexp }}"
-      when: (kurulum_redis_parola.stdout | default('')) != ''
+      # --check'te paket henüz kurulmadıysa /etc/redis/redis.conf yoktur (apt --check'te kurmaz); önizleme "yapılandırma yazılacak" der
+      when: >-
+        (kurulum_redis_parola.stdout | default('')) != ''
+        and not (ansible_check_mode and kd_redis_paket is changed)
       register: kd_redis_conf
       no_log: true
     - name: Enable and start Redis
