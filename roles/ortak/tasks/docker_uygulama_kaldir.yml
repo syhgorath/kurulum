@@ -1,0 +1,18 @@
+# Docker uygulamasını durdurur ve konteyneri kaldırır. VERİYE DOKUNMAZ: 'down -v' yok, adlandırılmış volume yok, data/ ve .env kalır.
+- name: Stop and remove the container (data and secrets stay)
+  ansible.builtin.command: docker compose --progress quiet -p kurulum-{{ k_yz }} -f {{ k_ana }}/{{ k_yz }}/compose.yml down
+  register: kd_compose_down
+  changed_when: "'Removed' in kd_compose_down.stderr or 'Removed' in kd_compose_down.stdout"
+  when: not ansible_check_mode and kurulum_docker_durum in ['resmi', 'dagitim']
+
+- name: Record the removal in the marker
+  ansible.builtin.include_role:
+    name: ana_klasor
+    tasks_from: isaret_yaz
+  vars:
+    k_sil: true
+    k_kayit:
+      mod: docker
+      surum: "{{ k_isaret.yazilimlar[k_yz].surum }}"
+      veri_yolu: "{{ k_ana }}/{{ k_yz }}/data"
+      kaldirilma: "{{ ansible_facts['date_time']['date'] }}"

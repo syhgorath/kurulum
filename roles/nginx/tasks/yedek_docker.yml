@@ -1,0 +1,9 @@
+- name: Back up the web root and compose file
+  ansible.builtin.shell: |
+    set -eu
+    umask 077
+    tar czf '{{ k_yedek }}/www.tar.gz' -C '{{ k_ana }}/nginx/data' www
+    cp -p '{{ k_ana }}/nginx/compose.yml' '{{ k_yedek }}/compose.yml'
+  args:
+    executable: /bin/bash
+  changed_when: true

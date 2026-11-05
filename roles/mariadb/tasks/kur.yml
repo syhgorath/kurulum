@@ -1,0 +1,52 @@
+- name: Docker mode
+  ansible.builtin.include_tasks: "{{ playbook_dir }}/../roles/ortak/tasks/docker_uygulama_kur.yml"
+  when: k_mod == 'docker'
+
+- name: Native mode
+  when: k_mod == 'native'
+  block:
+    - name: Port 3306 must be free for the package post-install start
+      ansible.builtin.assert:
+        that: kurulum_paket_var.stdout == '1' or 3306 not in k_dinlenen
+        fail_msg: >-
+          kurulum: mariadb-server paketi kurulurken servisi 3306'da başlatmaya çalışır; 3306 şu an dolu (ss). Önce 3306'yı kullanan süreci durdurun
+          ya da docker modunu kullanın. Hiçbir şey kurulmadı.
+        quiet: true
+    - name: Install MariaDB server
+      ansible.builtin.apt:
+        name: mariadb-server
+        state: present
+        update_cache: true
+        cache_valid_time: 3600
+      register: kd_mariadb_paket
+    - name: Managed configuration (bind and port)
+      ansible.builtin.template:
+        src: kurulum.cnf.j2
+        dest: /etc/mysql/mariadb.conf.d/99-kurulum.cnf
+        owner: root
+        group: root
+        mode: "0644"
+      register: kd_mariadb_conf
+    - name: Enable and start MariaDB
+      ansible.builtin.systemd:
+        name: mariadb
+        enabled: true
+        state: started
+      when: not ansible_check_mode
+    - name: Restart after a configuration change
+      ansible.builtin.systemd:
+        name: mariadb
+        state: restarted
+      when: not ansible_check_mode and kd_mariadb_conf is changed and kd_mariadb_paket is not changed
+      register: kd_mariadb_yeniden
+    - name: Connection keys (no secret, root uses unix_socket via sudo)
+      ansible.builtin.include_role:
+        name: env_dosyalari
+        tasks_from: ortak
+      when: not (ansible_check_mode and kurulum_ana_durum == 'yeni')
+    - name: Record in the marker
+      ansible.builtin.include_role:
+        name: ana_klasor
+        tasks_from: isaret_yaz
+      vars:
+        k_kayit: { mod: native, surum: dagitim, port: "{{ k_port | int }}", bind: "{{ k_bind }}", veri_yolu: "{{ k_katalog.native_veri }}" }

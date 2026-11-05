@@ -1,0 +1,34 @@
+# Docker uygulaması sürüm yükseltmesi: ÖNCE döküm/yedek, sonra yeni imaj çekilir, sonra compose güncellenir. Geri düşürme YOK.
+- name: Require an installed docker-mode application
+  ansible.builtin.assert:
+    that:
+      - k_kurulu
+      - k_kayit_eski.mod == 'docker'
+      - k_kayit_eski.surum != k_surum
+      - k_surum is version(k_kayit_eski.surum, '>')
+    fail_msg: >-
+      kurulum: yükseltme yapılamaz. {{ k_yz }}: kurulu={{ k_kurulu }}, mod={{ k_kayit_eski.mod | default('-') }}, sürüm={{ k_kayit_eski.surum | default('-') }}, istenen={{ k_surum }}.
+      Yalnızca docker modunda kurulu uygulama, daha YENİ bir sürüme yükseltilir (geri düşürme desteklenmez; native sürüm yükseltme v0.1'de yok).
+    quiet: true
+
+- name: Backup directory (0700)
+  ansible.builtin.file:
+    path: "{{ k_ana }}/{{ k_yz }}/yedek/{{ ansible_facts['date_time']['iso8601_basic_short'] }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0700"
+  register: kd_yedek_dizin
+
+- name: Take the backup / dump first
+  ansible.builtin.include_tasks: "{{ playbook_dir }}/../roles/{{ k_yz }}/tasks/yedek_docker.yml"
+  vars:
+    k_yedek: "{{ k_ana }}/{{ k_yz }}/yedek/{{ ansible_facts['date_time']['iso8601_basic_short'] }}"
+
+- name: Pull the new image before touching anything
+  ansible.builtin.command: docker pull {{ k_imaj }}
+  register: kd_imaj_cek
+  changed_when: "'Downloaded newer image' in kd_imaj_cek.stdout"
+
+- name: Apply the new version
+  ansible.builtin.include_tasks: "{{ playbook_dir }}/../roles/ortak/tasks/docker_uygulama_kur.yml"

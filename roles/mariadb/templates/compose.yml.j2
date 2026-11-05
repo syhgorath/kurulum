@@ -1,0 +1,23 @@
+# kurulum tarafından üretildi (mariadb, docker modu). Parola .env içinde (0600), bu dosyada YOK.
+services:
+  mariadb:
+    image: {{ k_imaj }}
+    container_name: kurulum-mariadb
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      MARIADB_AUTO_UPGRADE: "1"
+    ports:
+      - "{{ k_bind }}:{{ k_port }}:3306"
+    volumes:
+      - ./data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+networks:
+  default:
+    name: {{ kurulum_docker_ag }}
+    external: true

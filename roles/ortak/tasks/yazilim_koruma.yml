@@ -1,0 +1,42 @@
+# Yazılım koruması (nginx/mariadb/redis): tek mod, sabit sürüm, yönetilmeyen paket. Salt okunur, --check'te de çalışır. Sonuç: k_kurulu, k_yukseltme (yukseltme gerekli mi).
+- name: Read the recorded state
+  ansible.builtin.set_fact:
+    k_kurulu: "{{ k_yz in (k_isaret.yazilimlar | default({})) }}"
+    k_kayit_eski: "{{ (k_isaret.yazilimlar | default({})).get(k_yz, {}) }}"
+
+- name: Is the package installed?
+  ansible.builtin.shell: "dpkg-query -W -f='${db:Status-Abbrev}' {{ k_katalog.paket }} 2>/dev/null | grep -q '^ii' && echo 1 || echo 0"
+  args:
+    executable: /bin/bash
+  register: kurulum_paket_var
+  changed_when: false
+  check_mode: false
+
+- name: Stop on one-mode-per-software violation
+  ansible.builtin.assert:
+    that: not k_kurulu or k_kayit_eski.mod == k_mod
+    fail_msg: >-
+      kurulum: {{ k_yz }} bu sunucuda zaten '{{ k_kayit_eski.mod | default('') }}' modunda kurulu; istenen '{{ k_mod }}'. Bir yazılım için tek mod vardır.
+      Önce kaldir eylemiyle kaldırın (veri silinmez), sonra istediğiniz modda kurun.
+    quiet: true
+
+- name: Stop on an unmanaged native package
+  ansible.builtin.assert:
+    that: k_mod != 'native' or k_kurulu or kurulum_paket_var.stdout == '0' or (kurulum_islem == 'kaldir')
+    fail_msg: >-
+      kurulum: {{ k_katalog.paket }} paketi bu sunucuda zaten kurulu ama kurulum tarafından yönetilmiyor (işaret dosyasında kaydı yok).
+      Mevcut kurulumunuza dokunmamak için durduruldu; elle devralmak v0.1'de yok.
+    quiet: true
+
+- name: Detect a version change (docker mode)
+  ansible.builtin.set_fact:
+    k_yukseltme: "{{ k_kurulu and k_mod == 'docker' and k_kayit_eski.surum | default('') != k_surum }}"
+
+- name: kur never changes the image tag silently
+  ansible.builtin.assert:
+    that: not k_yukseltme or ansible_check_mode or (k_yukselt_modu | default(false) | bool)
+    fail_msg: >-
+      kurulum: {{ k_yz }} sunucuda {{ k_kayit_eski.surum | default('') }} sürümünde; istenen {{ k_surum }}. kur sürümü sessizce değiştirmez.
+      Yükseltme için yukselt eylemini kullanın (öncesinde döküm alır, geri düşürme yoktur).
+    quiet: true
+  when: kurulum_islem == 'kur'

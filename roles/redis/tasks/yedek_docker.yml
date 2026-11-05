@@ -1,0 +1,10 @@
+# Yükseltme öncesi: SAVE (RDB) sonra veri klasörünün kopyası. Parola konteynerin kendi ortamından okunur.
+- name: Save and copy the data directory
+  ansible.builtin.shell: |
+    set -eu -o pipefail
+    umask 077
+    docker exec kurulum-redis sh -c 'redis-cli -a "$REDIS_PASSWORD" --no-auth-warning SAVE' | grep -q '^OK'
+    cp -a '{{ k_ana }}/redis/data' '{{ k_yedek }}/data'
+  args:
+    executable: /bin/bash
+  changed_when: true

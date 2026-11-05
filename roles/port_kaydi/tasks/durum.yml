@@ -1,0 +1,20 @@
+# Durum eylemi için salt okunur özet (işaret dosyasından): kurulu yazılımlar (id:mod), portlar (id:port) ve satır satır ayrıntı.
+- name: Collect installed software from the marker
+  ansible.builtin.set_fact:
+    k_kurulu_liste: "{{ k_kurulu_liste | default([]) + [item.key ~ ':' ~ item.value.mod] }}"
+    k_port_liste: "{{ k_port_liste | default([]) + ([item.key ~ ':' ~ item.value.port] if (item.value.port | default(0) | int) > 0 else []) }}"
+    k_durum_satirlari: >-
+      {{ k_durum_satirlari | default([]) + [item.key ~ ': mod=' ~ item.value.mod ~ ' sürüm=' ~ item.value.surum ~ ' port=' ~ item.value.port
+         ~ ' bind=' ~ (item.value.bind | default('')) ~ ' veri=' ~ item.value.veri_yolu] }}
+  loop: "{{ (k_isaret.yazilimlar | default({})) | dict2items }}"
+  loop_control:
+    label: "{{ item.key }}"
+
+- name: Ports in use per ss (informational)
+  ansible.builtin.import_tasks: kontrol_ss.yml
+
+- name: Summaries
+  ansible.builtin.set_fact:
+    k_kurulu_ozet: "{{ (k_kurulu_liste | default([])) | join('+') or 'yok' }}"
+    k_port_ozet: "{{ (k_port_liste | default([])) | join('+') or 'yok' }}"
+    k_durum_satirlari: "{{ k_durum_satirlari | default(['(kurulu yazılım yok)']) }}"

@@ -1,0 +1,3 @@
+- name: Refuse Docker removal
+  ansible.builtin.fail:
+    msg: "kurulum: Docker taban kaldırması v0.1'de yok (diğer konteynerleri ve /var/lib/docker verisini etkiler). Önce uygulamaları kaldırın, Docker'ı elle kaldırın."

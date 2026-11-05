@@ -1,0 +1,53 @@
+# <ana>/<yz>/.env (0600): gizli değerler SUNUCUDA /dev/urandom'dan üretilir, yalnızca yoksa; Mac'e, ekrana, günlüğe yazılmaz (no_log).
+# Girdi: k_yz, k_ana, k_katalog.gizli (anahtar adları). Sonuç: k_gizli_uretilen (anahtar adları).
+- name: Application directory
+  ansible.builtin.file:
+    path: "{{ k_ana }}/{{ k_yz }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0750"
+  register: kd_uygulama_dizin
+
+- name: Check which secrets exist
+  ansible.builtin.shell: "grep -q '^{{ item }}=' '{{ k_ana }}/{{ k_yz }}/.env' 2>/dev/null && echo var || echo yok"
+  args:
+    executable: /bin/bash
+  loop: "{{ k_katalog.gizli }}"
+  register: kurulum_gizli_var
+  changed_when: false
+  check_mode: false
+  no_log: true
+
+- name: Generate missing secrets on the server
+  ansible.builtin.shell: head -c 96 /dev/urandom | base64 | tr -dc 'A-Za-z0-9' | head -c 32
+  args:
+    executable: /bin/bash
+  loop: "{{ kurulum_gizli_var.results }}"
+  loop_control:
+    label: "{{ item.item }}"
+  register: kurulum_gizli_uret
+  changed_when: false
+  check_mode: false
+  no_log: true
+  when: item.stdout == 'yok'
+
+- name: Store the generated secrets (0600)
+  ansible.builtin.lineinfile:
+    path: "{{ k_ana }}/{{ k_yz }}/.env"
+    regexp: "^{{ item.item.item }}="
+    line: "{{ item.item.item }}={{ item.stdout }}"
+    create: true
+    owner: root
+    group: root
+    mode: "0600"
+  loop: "{{ kurulum_gizli_uret.results | default([]) | selectattr('stdout', 'defined') | list }}"
+  loop_control:
+    label: "{{ item.item.item }}"
+  register: kd_gizli_yaz
+  no_log: true
+
+- name: Secret key names (values are never printed)
+  ansible.builtin.set_fact:
+    k_gizli_uretilen: "{{ kurulum_gizli_var.results | selectattr('stdout', 'equalto', 'yok') | map(attribute='item') | list }}"
+  no_log: true

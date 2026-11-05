@@ -1,0 +1,14 @@
+# kurulum tarafından üretildi (nginx, docker modu). Elle düzenlenirse sonraki kur/yukselt bu dosyayı yeniden yazar.
+services:
+  nginx:
+    image: {{ k_imaj }}
+    container_name: kurulum-nginx
+    restart: unless-stopped
+    ports:
+      - "{{ k_bind }}:{{ k_port }}:80"
+    volumes:
+      - ./data/www:/usr/share/nginx/html:ro
+networks:
+  default:
+    name: {{ kurulum_docker_ag }}
+    external: true

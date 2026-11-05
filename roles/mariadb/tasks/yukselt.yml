@@ -1,0 +1,7 @@
+- name: Refuse native upgrade
+  ansible.builtin.fail:
+    msg: "kurulum: native sürüm yükseltme v0.1'de yok (apt ile kendiniz güncelleyin). Yalnızca docker modu yükseltilir."
+  when: k_mod == 'native'
+- name: Upgrade (docker)
+  ansible.builtin.include_tasks: "{{ playbook_dir }}/../roles/ortak/tasks/docker_uygulama_yukselt.yml"
+  when: k_mod == 'docker'

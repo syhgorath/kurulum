@@ -1,0 +1,92 @@
+# Ortak ön kontrol: işletim sistemi, Proxmox reddi, değişken biçimleri, türetilen değerler. Hiçbir şey değiştirmez; --check'te de çalışır.
+- name: Read OS identity
+  ansible.builtin.set_fact:
+    kurulum_os_name: "{{ ansible_facts['distribution'] }}"
+    kurulum_os_version: "{{ ansible_facts['distribution_version'] }}"
+
+- name: Fail on unsupported OS
+  ansible.builtin.assert:
+    that:
+      - >-
+        (kurulum_supported_os.get(kurulum_os_name, []) + kurulum_planned_os.get(kurulum_os_name, []))
+        | select('in', [kurulum_os_version, kurulum_os_version.split('.')[0]]) | list | length > 0
+    fail_msg: >-
+      kurulum: desteklenmeyen sistem ({{ kurulum_os_name }} {{ kurulum_os_version }}). v0.1 yalnızca Ubuntu 26.04 ve Debian 13 destekler.
+      Proxmox VE ve Raspberry Pi kapsam dışıdır.
+    quiet: true
+
+- name: Detect Proxmox VE
+  ansible.builtin.stat:
+    path: "{{ item }}"
+  loop: [/usr/bin/pveversion, /etc/pve]
+  register: kurulum_pve
+  check_mode: false
+
+- name: Refuse Proxmox VE
+  ansible.builtin.assert:
+    that: kurulum_pve.results | selectattr('stat.exists') | list | length == 0
+    fail_msg: "kurulum: Proxmox VE tespit edildi. Proxmox VE v0.1 kapsam dışıdır; hiçbir şey değiştirilmedi."
+    quiet: true
+
+- name: Validate variable shapes
+  ansible.builtin.assert:
+    that:
+      - kurulum_yazilim in ['docker', 'nginx', 'mariadb', 'redis']
+      - kurulum_mod in ['native', 'docker']
+      - kurulum_docker_kaynak in ['resmi', 'dagitim']
+      - kurulum_dis_erisim | bool in [true, false]
+      - kurulum_ana_klasor is string
+      - kurulum_nginx_port | int >= 1 and kurulum_nginx_port | int <= 65535
+      - kurulum_mariadb_port | int >= 1 and kurulum_mariadb_port | int <= 65535
+      - kurulum_redis_port | int >= 1 and kurulum_redis_port | int <= 65535
+      - kurulum_nginx_surum in kurulum_katalog.nginx.surumler
+      - kurulum_mariadb_surum in kurulum_katalog.mariadb.surumler
+      - kurulum_redis_surum in kurulum_katalog.redis.surumler
+    fail_msg: >-
+      kurulum: değişken biçimi geçersiz. kurulum_yazilim: docker|nginx|mariadb|redis; kurulum_mod: native|docker; portlar 1-65535;
+      sürümler küratörlü listeden (nginx {{ kurulum_katalog.nginx.surumler | join(', ') }}; mariadb {{ kurulum_katalog.mariadb.surumler | join(', ') }};
+      redis {{ kurulum_katalog.redis.surumler | join(', ') }}).
+    quiet: true
+
+- name: Derive per-run values
+  ansible.builtin.set_fact:
+    k_yz: "{{ kurulum_yazilim }}"
+    k_mod: "{{ 'native' if kurulum_yazilim == 'docker' else kurulum_mod }}"
+    k_ana: "{{ kurulum_ana_klasor | trim | regex_replace('/+$', '') if kurulum_ana_klasor | trim != '/' else '/' }}"
+    k_bind: "{{ '0.0.0.0' if kurulum_dis_erisim | bool else '127.0.0.1' }}"
+
+- name: Derive software values
+  ansible.builtin.set_fact:
+    k_katalog: "{{ kurulum_katalog[k_yz] | default({}) }}"
+    k_port: "{{ lookup('vars', 'kurulum_' ~ k_yz ~ '_port', default=0) | int }}"
+    k_ozel: "{{ lookup('vars', 'kurulum_' ~ k_yz ~ '_imaj_ozel', default='') | trim }}"
+    k_surum_secili: "{{ lookup('vars', 'kurulum_' ~ k_yz ~ '_surum', default='') }}"
+  when: k_yz != 'docker'
+
+- name: Validate custom image (warned, never latest)
+  ansible.builtin.assert:
+    that:
+      - k_ozel | regex_search('^' ~ k_katalog.imaj ~ ':[0-9]+(\.[0-9]+){1,2}([-.][A-Za-z0-9.]+)?$') is not none
+    fail_msg: >-
+      kurulum: kurulum_{{ k_yz }}_imaj_ozel '{{ k_katalog.imaj }}:<sürüm>' biçiminde sabit bir etiket olmalı (latest ve etiketsiz imaj reddedilir).
+      Küratörlü listede olmayan sürüm denenmemiştir.
+    quiet: true
+  when: k_yz != 'docker' and k_ozel != ''
+
+- name: Derive image
+  ansible.builtin.set_fact:
+    k_surum: "{{ k_ozel.split(':')[1] if k_ozel != '' else k_surum_secili }}"
+    k_imaj: "{{ k_ozel if k_ozel != '' else k_katalog.imaj ~ ':' ~ k_surum_secili }}"
+  when: k_yz != 'docker'
+
+- name: Native software has no image version
+  ansible.builtin.set_fact:
+    k_surum: "dagitim"
+  when: k_yz != 'docker' and k_mod == 'native'
+
+- name: Show the ufw suggestion when exposed
+  ansible.builtin.debug:
+    msg: >-
+      kurulum: dış erişim açık ({{ k_bind }}:{{ k_port }}). ufw'ye YAZILMAZ (tek sahibi linux-hardening). Öneri: servers/<ad>/linux-hardening.vars içinde
+      hardening_ufw_extra_allow_host listesine 'from <yönetim ağı> to any port {{ k_port }} proto tcp' ekleyin ('any' kaynak vermeyin). Docker yayınlanan portu ufw'yi atlayarak açar.
+  when: k_yz != 'docker' and kurulum_dis_erisim | bool

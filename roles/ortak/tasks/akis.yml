@@ -1,0 +1,67 @@
+# Ortak akış (kur / yukselt / kaldir; preview = kur'un --check hali). Sonuç satırını playbook yazar.
+- name: Preflight
+  ansible.builtin.include_tasks: preflight.yml
+
+- name: Run
+  block:
+    - name: Take the run lock
+      ansible.builtin.include_tasks: kilit_al.yml
+      when: not ansible_check_mode
+
+    - name: Remember the lock
+      ansible.builtin.set_fact:
+        k_kilit_alindi: true
+      when: not ansible_check_mode
+
+    - name: Check the ana klasör
+      ansible.builtin.include_role:
+        name: ana_klasor
+        tasks_from: kontrol
+
+    - name: Stop on a local/server mismatch
+      ansible.builtin.include_role:
+        name: ana_klasor
+        tasks_from: dur_eger_uyusmuyor
+
+    - name: Check Docker
+      ansible.builtin.include_role:
+        name: docker_kontrol
+
+    - name: Software checks
+      when: k_yz != 'docker'
+      block:
+        - name: Guards (one mode, fixed version, unmanaged package)
+          ansible.builtin.include_tasks: yazilim_koruma.yml
+
+        - name: Port check
+          ansible.builtin.include_role:
+            name: port_kaydi
+            tasks_from: kontrol
+          when: kurulum_islem == 'kur'
+
+        - name: Docker mode needs a usable Docker (install it first with kurulum_yazilim=docker)
+          ansible.builtin.assert:
+            that: kurulum_docker_durum in ['resmi', 'dagitim'] and kurulum_docker_compose
+            fail_msg: >-
+              kurulum: docker modu için uygun Docker yok (durum: {{ kurulum_docker_durum }}, compose: {{ kurulum_docker_compose }}). Önce kurulum_yazilim=docker
+              ile Docker taban kurulumunu yapın. snap/paket dışı Docker desteklenmez. Hiçbir şey değiştirilmedi.
+            quiet: true
+          when: k_mod == 'docker' and kurulum_islem in ['kur', 'yukselt']
+
+    - name: Create the ana klasör and markers
+      ansible.builtin.include_role:
+        name: ana_klasor
+        tasks_from: kur
+      when: kurulum_islem == 'kur'
+
+    - name: Run the software role
+      ansible.builtin.include_role:
+        name: "{{ 'docker_taban' if k_yz == 'docker' else k_yz }}"
+        tasks_from: "{{ kurulum_islem }}"
+
+    - name: Count the changes
+      ansible.builtin.include_tasks: degisen.yml
+  always:
+    - name: Release the run lock
+      ansible.builtin.include_tasks: kilit_birak.yml
+      when: k_kilit_alindi | default(false) | bool

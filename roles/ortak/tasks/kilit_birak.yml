@@ -1,0 +1,10 @@
+- name: Release the run lock
+  ansible.builtin.shell: |
+    p=$(cat {{ kurulum_kilit }}.pid 2>/dev/null || true)
+    [ -n "$p" ] && kill -- "-$p" 2>/dev/null || true
+    rm -f {{ kurulum_kilit }}.pid
+  args:
+    executable: /bin/bash
+  changed_when: false
+  failed_when: false
+  check_mode: false

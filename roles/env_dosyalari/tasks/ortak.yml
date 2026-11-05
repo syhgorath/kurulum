@@ -1,0 +1,18 @@
+# <ana>/.env: gizli OLMAYAN bağlantı anahtarları. Native ve Docker modu AYNI anahtarları yazar (<YZ>_HOST, <YZ>_PORT); docker modunda HOST servis adıdır
+# (kurulum ağı içinden), PORT konteyner portudur, sunucuya yayınlanan port <YZ>_HOST_PORT'tur.
+- name: Write the connection keys
+  ansible.builtin.lineinfile:
+    path: "{{ k_ana }}/.env"
+    regexp: "^{{ item.key }}="
+    line: "{{ item.key }}={{ item.value }}"
+    create: false
+    owner: root
+    group: root
+    mode: "0640"
+  loop:
+    - { key: "{{ k_yz | upper }}_HOST", value: "{{ k_yz if k_mod == 'docker' else '127.0.0.1' }}" }
+    - { key: "{{ k_yz | upper }}_PORT", value: "{{ k_katalog.konteyner_port if k_mod == 'docker' else k_port }}" }
+    - { key: "{{ k_yz | upper }}_HOST_PORT", value: "{{ k_port }}" }
+  loop_control:
+    label: "{{ item.key }}"
+  register: kd_env_baglanti

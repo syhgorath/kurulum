@@ -1,0 +1,11 @@
+- name: List listening TCP ports
+  ansible.builtin.shell: set -o pipefail; ss -ltnH | awk '{print $4}' | sed 's/.*://' | sort -un
+  args:
+    executable: /bin/bash
+  register: kurulum_ss
+  changed_when: false
+  check_mode: false
+
+- name: Listening ports
+  ansible.builtin.set_fact:
+    k_dinlenen: "{{ kurulum_ss.stdout_lines | map('int') | list }}"

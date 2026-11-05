@@ -1,0 +1,10 @@
+# Yükseltme öncesi tam döküm (parola konteynerin kendi ortamından okunur; bu görevde parola yok).
+- name: Dump all databases before the upgrade
+  ansible.builtin.shell: |
+    set -eu -o pipefail
+    umask 077
+    docker exec kurulum-mariadb sh -c 'mariadb-dump -uroot -p"$MARIADB_ROOT_PASSWORD" --all-databases --single-transaction --routines --events --triggers' > '{{ k_yedek }}/dump.sql'
+    test -s '{{ k_yedek }}/dump.sql'
+  args:
+    executable: /bin/bash
+  changed_when: true

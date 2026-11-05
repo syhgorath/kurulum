@@ -1,0 +1,74 @@
+- name: Docker mode
+  ansible.builtin.include_tasks: "{{ playbook_dir }}/../roles/ortak/tasks/docker_uygulama_kur.yml"
+  when: k_mod == 'docker'
+
+- name: Native mode
+  when: k_mod == 'native'
+  block:
+    - name: Port 6379 must be free for the package post-install start
+      ansible.builtin.assert:
+        that: kurulum_paket_var.stdout == '1' or 6379 not in k_dinlenen
+        fail_msg: >-
+          kurulum: redis-server paketi kurulurken servisi 6379'da başlatmaya çalışır; 6379 şu an dolu (ss). Önce o süreci durdurun
+          ya da docker modunu kullanın. Hiçbir şey kurulmadı.
+        quiet: true
+    - name: Install Redis server
+      ansible.builtin.apt:
+        name: redis-server
+        state: present
+        update_cache: true
+        cache_valid_time: 3600
+      register: kd_redis_paket
+    - name: Generate the password on the server
+      ansible.builtin.include_role:
+        name: env_dosyalari
+        tasks_from: gizli
+      when: not (ansible_check_mode and kurulum_ana_durum == 'yeni')
+    - name: Read the password for redis.conf (never printed)
+      ansible.builtin.shell: grep '^REDIS_PASSWORD=' '{{ k_ana }}/redis/.env' | cut -d= -f2-
+      args:
+        executable: /bin/bash
+      register: kurulum_redis_parola
+      changed_when: false
+      check_mode: false
+      failed_when: false
+      no_log: true
+    - name: Configure port, bind and password (backed up)
+      ansible.builtin.lineinfile:
+        path: /etc/redis/redis.conf
+        regexp: "{{ item.regexp }}"
+        line: "{{ item.line }}"
+        insertafter: "{{ item.after | default(omit) }}"
+        backup: true
+      loop:
+        - { regexp: '^port ', line: "port {{ k_port }}" }
+        - { regexp: '^bind ', line: "bind {{ k_bind }}" }
+        - { regexp: '^requirepass ', line: "requirepass {{ kurulum_redis_parola.stdout | default('') }}", after: '^# requirepass' }
+      loop_control:
+        label: "{{ item.regexp }}"
+      when: (kurulum_redis_parola.stdout | default('')) != ''
+      register: kd_redis_conf
+      no_log: true
+    - name: Enable and start Redis
+      ansible.builtin.systemd:
+        name: redis-server
+        enabled: true
+        state: started
+      when: not ansible_check_mode
+    - name: Restart after a configuration change
+      ansible.builtin.systemd:
+        name: redis-server
+        state: restarted
+      when: not ansible_check_mode and kd_redis_conf is changed
+      register: kd_redis_yeniden
+    - name: Connection keys
+      ansible.builtin.include_role:
+        name: env_dosyalari
+        tasks_from: ortak
+      when: not (ansible_check_mode and kurulum_ana_durum == 'yeni')
+    - name: Record in the marker
+      ansible.builtin.include_role:
+        name: ana_klasor
+        tasks_from: isaret_yaz
+      vars:
+        k_kayit: { mod: native, surum: dagitim, port: "{{ k_port | int }}", bind: "{{ k_bind }}", veri_yolu: "{{ k_katalog.native_veri }}" }

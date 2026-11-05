@@ -1,0 +1,21 @@
+# kurulum tarafından üretildi (redis, docker modu). Parola .env içinde (0600), bu dosyada YOK; konteyner içinde ortamdan okunur.
+services:
+  redis:
+    image: {{ k_imaj }}
+    container_name: kurulum-redis
+    restart: unless-stopped
+    env_file: .env
+    command: ["sh", "-c", "exec redis-server --requirepass \"$$REDIS_PASSWORD\" --appendonly yes"]
+    ports:
+      - "{{ k_bind }}:{{ k_port }}:6379"
+    volumes:
+      - ./data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a \"$$REDIS_PASSWORD\" --no-auth-warning ping | grep -q PONG"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+networks:
+  default:
+    name: {{ kurulum_docker_ag }}
+    external: true

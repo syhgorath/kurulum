@@ -1,0 +1,6 @@
+# Değişen görev sayısı: 'kd_' ile başlayan register değişkenlerinden (loop sonuçları dahil) sayılır.
+- name: Count changed tasks
+  ansible.builtin.set_fact:
+    k_degisen: >-
+      {{ hostvars[inventory_hostname] | dict2items | selectattr('key', 'match', '^kd_')
+         | selectattr('value', 'mapping') | selectattr('value.changed', 'defined') | selectattr('value.changed') | list | length }}

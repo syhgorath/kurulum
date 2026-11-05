@@ -1,0 +1,26 @@
+# Girdi: k_yz, k_kayit (dict) ya da k_sil=true. İşaret dosyasını (<ana>/.kurulum) güncel haliyle yazar; içerik değişmediyse changed olmaz.
+- name: Compute the new marker
+  ansible.builtin.set_fact:
+    k_isaret_yeni:
+      ana_klasor: "{{ k_ana }}"
+      olusturma: "{{ k_isaret.olusturma | default(ansible_facts['date_time']['iso8601']) }}"
+      surum: "{{ kurulum_surumi }}"
+      yazilimlar: >-
+        {{ (k_isaret.yazilimlar | default({}) | dict2items | rejectattr('key', 'equalto', k_yz) | list | items2dict)
+           | combine({} if (k_sil | default(false) | bool) else {k_yz: k_kayit}) }}
+      kaldirilan: >-
+        {{ (k_isaret.kaldirilan | default({}) | dict2items | rejectattr('key', 'equalto', k_yz) | list | items2dict)
+           | combine({k_yz: k_kayit} if (k_sil | default(false) | bool) else {}) }}
+
+- name: Write the marker
+  ansible.builtin.copy:
+    dest: "{{ k_ana }}/.kurulum"
+    content: "{{ k_isaret_yeni | to_nice_json(indent=2, sort_keys=True) }}\n"
+    owner: root
+    group: root
+    mode: "0640"
+  register: kd_isaret
+
+- name: Keep the in-memory marker current
+  ansible.builtin.set_fact:
+    k_isaret: "{{ k_isaret_yeni }}"

@@ -1,0 +1,3 @@
+- name: Refuse Docker upgrade
+  ansible.builtin.fail:
+    msg: "kurulum: Docker taban yükseltmesi v0.1'de yok (native sürüm yükseltme kapsam dışı; /var/lib/docker verisi riski). Dağıtımın apt güncellemesini kendiniz yönetin."

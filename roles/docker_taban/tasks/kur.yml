@@ -1,0 +1,102 @@
+# Docker taban kurulumu. Kurulu (resmi/dagitim) ise DOKUNMAZ; snap/farklı ise uyarır ve dokunmaz. docker grubuna kullanıcı EKLENMEZ (root-eşdeğeri);
+# docker komutları sudo ile çalışır. daemon.json ve data-root'a (/var/lib/docker) dokunulmaz.
+- name: Docker already present (left untouched)
+  ansible.builtin.debug:
+    msg: "kurulum: Docker zaten kurulu ({{ kurulum_docker_durum }}); dokunulmadı."
+  when: kurulum_docker_durum in ['resmi', 'dagitim']
+
+- name: Warn about snap or unknown Docker
+  ansible.builtin.debug:
+    msg: >-
+      kurulum: UYARI Docker '{{ kurulum_docker_durum }}' türünde (snap ya da paket dışı). Bu paket yalnızca apt ile gelen Docker'ı yönetir;
+      dokunulmadı. Docker uygulamaları (nginx/mariadb/redis docker modu) bu durumda kurulmaz.
+  when: kurulum_docker_durum in ['snap', 'diger']
+
+- name: Install Docker (official apt repository)
+  when: kurulum_docker_durum == 'yok' and kurulum_docker_kaynak == 'resmi'
+  block:
+    - name: Prerequisites
+      ansible.builtin.apt:
+        name: [ca-certificates]
+        state: present
+        update_cache: true
+        cache_valid_time: 3600
+      register: kd_docker_onkosul
+
+    - name: Keyring directory
+      ansible.builtin.file:
+        path: /etc/apt/keyrings
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Docker repository key (bundled, fingerprint-pinned)
+      ansible.builtin.copy:
+        src: docker.asc
+        dest: /etc/apt/keyrings/docker.asc
+        owner: root
+        group: root
+        mode: "0644"
+      diff: false
+      register: kd_docker_anahtar
+
+    - name: Docker repository
+      ansible.builtin.copy:
+        dest: /etc/apt/sources.list.d/docker.sources
+        content: |
+          Types: deb
+          URIs: https://download.docker.com/linux/{{ ansible_facts['distribution'] | lower }}
+          Suites: {{ ansible_facts['distribution_release'] }}
+          Components: stable
+          Architectures: {{ 'arm64' if ansible_facts['architecture'] in ['aarch64', 'arm64'] else 'amd64' }}
+          Signed-By: /etc/apt/keyrings/docker.asc
+        owner: root
+        group: root
+        mode: "0644"
+      register: kd_docker_depo
+
+    - name: Update package index after the repository change
+      ansible.builtin.apt:
+        update_cache: true
+      when: kd_docker_depo is changed or kd_docker_anahtar is changed
+      register: kd_docker_indeks
+
+    - name: Install Docker Engine and Compose plugin
+      ansible.builtin.apt:
+        name: [docker-ce, docker-ce-cli, containerd.io, docker-buildx-plugin, docker-compose-plugin]
+        state: present
+      register: kd_docker_paket
+      # --check'te depo henüz yazılmadığından paket bulunamaz; önizleme "depo + paketler kurulacak" der
+      when: not (ansible_check_mode and (kd_docker_depo is changed or kd_docker_anahtar is changed))
+
+- name: Install Docker (distribution package)
+  when: kurulum_docker_durum == 'yok' and kurulum_docker_kaynak == 'dagitim'
+  ansible.builtin.apt:
+    name: "{{ ['docker.io', 'docker-compose-v2'] if ansible_facts['distribution'] == 'Ubuntu' else ['docker.io', 'docker-compose'] }}"
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+  register: kd_docker_paket_dagitim
+
+- name: Enable and start Docker
+  ansible.builtin.systemd:
+    name: docker
+    enabled: true
+    state: started
+  when: kurulum_docker_durum in ['resmi', 'dagitim'] or not ansible_check_mode
+  register: kd_docker_servis
+
+- name: Record Docker in the marker (only when this run installed it)
+  ansible.builtin.include_role:
+    name: ana_klasor
+    tasks_from: isaret_yaz
+  vars:
+    k_yz: docker
+    k_kayit:
+      mod: native
+      surum: "{{ kurulum_docker_kaynak }}"
+      port: 0
+      bind: ""
+      veri_yolu: /var/lib/docker
+  when: kurulum_docker_durum == 'yok' and not ansible_check_mode

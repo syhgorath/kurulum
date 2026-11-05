@@ -1,0 +1,26 @@
+# Port çakışması: sunucudaki dinleyenler (ss) + işaret dosyasındaki kayıtlar (durmuş konteyner dahil). Salt okunur, --check'te de çalışır.
+# Girdi: k_yz, k_port, k_isaret. Çakışmada "3333 portu X uygulamasına verilmiş" der ve boş port önerir. 80/443 tek sahiplidir.
+- name: List listening TCP ports
+  ansible.builtin.import_tasks: kontrol_ss.yml
+
+- name: Evaluate the ports
+  ansible.builtin.set_fact:
+    k_kayitli_portlar: "{{ k_isaret.yazilimlar | default({}) | dict2items | rejectattr('key', 'equalto', k_yz) | map(attribute='value.port') | map('int') | list }}"
+    k_kendi_port: "{{ (k_isaret.yazilimlar | default({})).get(k_yz, {}).get('port', 0) | int }}"
+    k_sahip: "{{ k_isaret.yazilimlar | default({}) | dict2items | rejectattr('key', 'equalto', k_yz) | selectattr('value.port', 'equalto', k_port | int) | map(attribute='key') | list }}"
+
+- name: Suggest a free port
+  ansible.builtin.set_fact:
+    k_port_oneri: "{{ range((k_port | int) + 1, (k_port | int) + 500) | reject('in', k_dinlenen + k_kayitli_portlar) | first | default(0) }}"
+
+- name: Refuse a port assigned to another application
+  ansible.builtin.assert:
+    that: k_sahip | length == 0
+    fail_msg: "kurulum: {{ k_port }} portu {{ k_sahip | join(',') }} uygulamasına verilmiş. Boş port önerisi: {{ k_port_oneri }}."
+    quiet: true
+
+- name: Refuse a port in use by another process
+  ansible.builtin.assert:
+    that: (k_port | int) not in k_dinlenen or (k_kendi_port | int) == (k_port | int)
+    fail_msg: "kurulum: {{ k_port }} portunu sunucuda başka bir süreç dinliyor (ss). Boş port önerisi: {{ k_port_oneri }}."
+    quiet: true

@@ -1,0 +1,89 @@
+# Docker modunda uygulama kurulumu (nginx/mariadb/redis ortak). Girdi: k_yz, k_ana, k_port, k_bind, k_imaj, k_surum, k_katalog.
+# Veri: <ana>/<yz>/data bind-mount (adlandırılmış volume YOK); imaj etiketi sabit; compose.yml şablondan.
+- name: Require a usable Docker
+  ansible.builtin.assert:
+    that: kurulum_docker_durum in ['resmi', 'dagitim'] and kurulum_docker_compose
+    fail_msg: >-
+      kurulum: Docker modu için uygun Docker yok (durum: {{ kurulum_docker_durum }}, compose: {{ kurulum_docker_compose }}). Önce kurulum_yazilim=docker ile
+      Docker taban kurulumunu yapın (snap Docker desteklenmez).
+    quiet: true
+  when: not (ansible_check_mode and kurulum_docker_durum == 'yok')
+
+- name: Application directories
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: directory
+    owner: "{{ item.owner | default(omit) }}"
+    group: "{{ item.owner | default(omit) }}"
+    mode: "{{ item.mode | default(omit) }}"
+  loop:
+    - { path: "{{ k_ana }}/{{ k_yz }}", owner: root, mode: "0750" }
+    - { path: "{{ k_ana }}/{{ k_yz }}/data" }
+  loop_control:
+    label: "{{ item.path }}"
+  register: kd_uygulama_dizinleri
+
+- name: Secrets and connection keys
+  ansible.builtin.include_role:
+    name: env_dosyalari
+    tasks_from: "{{ item }}"
+  loop: [gizli, ortak]
+
+- name: Docker network
+  ansible.builtin.shell: |
+    docker network inspect {{ kurulum_docker_ag }} >/dev/null 2>&1 || { docker network create {{ kurulum_docker_ag }} >/dev/null && echo yeni; }
+  args:
+    executable: /bin/bash
+  register: kd_ag
+  changed_when: "'yeni' in kd_ag.stdout"
+  when: not ansible_check_mode
+
+- name: Compose file
+  ansible.builtin.template:
+    src: "{{ playbook_dir }}/../roles/{{ k_yz }}/templates/compose.yml.j2"
+    dest: "{{ k_ana }}/{{ k_yz }}/compose.yml"
+    owner: root
+    group: root
+    mode: "0640"
+  register: kd_compose
+
+- name: Validate the compose file (docker compose config)
+  ansible.builtin.command: docker compose -p kurulum-{{ k_yz }} -f {{ k_ana }}/{{ k_yz }}/compose.yml config -q
+  changed_when: false
+  when: not ansible_check_mode
+
+- name: Is the service running?
+  ansible.builtin.command: docker compose -p kurulum-{{ k_yz }} -f {{ k_ana }}/{{ k_yz }}/compose.yml ps -q --status running
+  register: kurulum_calisiyor
+  changed_when: false
+  failed_when: false
+  check_mode: false
+  when: not ansible_check_mode or kurulum_docker_durum in ['resmi', 'dagitim']
+
+- name: Start the service
+  ansible.builtin.command: docker compose --progress quiet -p kurulum-{{ k_yz }} -f {{ k_ana }}/{{ k_yz }}/compose.yml up -d
+  register: kd_compose_up
+  changed_when: true
+  when: not ansible_check_mode and (kd_compose is changed or kurulum_calisiyor.stdout | default('') | trim == '')
+
+- name: Wait until the container is running and healthy
+  ansible.builtin.shell: >-
+    docker inspect -f '{% raw %}{{.State.Running}} {{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}{% endraw %}' kurulum-{{ k_yz }}
+  register: kurulum_saglik
+  until: kurulum_saglik.stdout in ['true healthy', 'true none']
+  retries: 40
+  delay: 3
+  changed_when: false
+  when: not ansible_check_mode
+
+- name: Record in the marker
+  ansible.builtin.include_role:
+    name: ana_klasor
+    tasks_from: isaret_yaz
+  vars:
+    k_kayit:
+      mod: docker
+      surum: "{{ k_surum }}"
+      port: "{{ k_port | int }}"
+      bind: "{{ k_bind }}"
+      veri_yolu: "{{ k_ana }}/{{ k_yz }}/data"

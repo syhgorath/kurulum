@@ -1,0 +1,80 @@
+# Ana klasör kontrolü (salt okunur, --check'te de çalışır). Gerçek kaynak SUNUCUDAKİ işaret dosyasıdır:
+#   /etc/kurulum/ana  -> ana klasör yolu (tek satır)      <ana>/.kurulum -> JSON işaret
+# Yerel değişken (kurulum_ana_klasor) yalnızca istektir; sunucudakiyle farklıysa kurulum_ana_durum=uyusmuyor (sessiz düzeltme yok).
+- name: Validate ana klasör path shape
+  ansible.builtin.assert:
+    that:
+      - k_ana is match('^/[A-Za-z0-9_./-]+$')
+      - "'..' not in k_ana and '//' not in k_ana"
+      - k_ana not in kurulum_yasak_kokler
+      - (k_ana ~ '/') | regex_search('^(' ~ (kurulum_yasak_onekler | map('regex_escape') | join('|')) ~ ')') is none
+    fail_msg: >-
+      kurulum: ana klasör yolu geçersiz ('{{ k_ana }}'). Mutlak yol olmalı; boşluk ve özel karakter yok; '/', '/etc', '/usr', '/var', '/srv' gibi kökler ve
+      /etc /usr /boot /run /tmp /var/lib/docker altı yasak (örn. /srv/homelab).
+    quiet: true
+
+- name: Read the server locator
+  ansible.builtin.slurp:
+    src: /etc/kurulum/ana
+  register: kurulum_locator
+  failed_when: false
+  check_mode: false
+
+- name: Set the server-side ana klasör
+  ansible.builtin.set_fact:
+    k_ana_sunucu: "{{ (kurulum_locator.content | b64decode | trim) if kurulum_locator.content is defined else '' }}"
+
+- name: Read the marker
+  ansible.builtin.slurp:
+    src: "{{ (k_ana_sunucu if k_ana_sunucu != '' else k_ana) }}/.kurulum"
+  register: kurulum_isaret_ham
+  failed_when: false
+  check_mode: false
+
+- name: Parse the marker
+  ansible.builtin.set_fact:
+    k_isaret: "{{ (kurulum_isaret_ham.content | b64decode | from_json) if kurulum_isaret_ham.content is defined else {'yazilimlar': {}} }}"
+  failed_when: false
+  register: kurulum_isaret_ayrisma
+
+- name: Fail on a corrupt marker
+  ansible.builtin.assert:
+    that: kurulum_isaret_ayrisma is not failed
+    fail_msg: "kurulum: {{ (k_ana_sunucu if k_ana_sunucu != '' else k_ana) }}/.kurulum okunamadı (bozuk JSON). Dosyayı elle düzeltin ya da yedeğini geri koyun; hiçbir şey değiştirilmedi."
+    quiet: true
+
+- name: Decide the ana klasör state
+  ansible.builtin.set_fact:
+    kurulum_ana_durum: >-
+      {{ 'yeni' if (k_ana_sunucu == '' and kurulum_isaret_ham.content is not defined)
+         else ('uyusmuyor' if (k_ana_sunucu != '' and k_ana_sunucu != k_ana)
+         else ('isaretsiz' if kurulum_isaret_ham.content is not defined else 'tamam')) }}
+
+- name: Find the nearest existing parent (filesystem checks)
+  ansible.builtin.shell: |
+    set -eu
+    d="{{ k_ana }}"
+    while [ ! -e "$d" ]; do d=$(dirname "$d"); done
+    printf '%s %s\n' "$(stat -f -c %T "$d")" "$(df -Pk "$d" | awk 'NR==2{print $4}')"
+  args:
+    executable: /bin/bash
+  register: kurulum_fs
+  changed_when: false
+  check_mode: false
+
+- name: Evaluate the filesystem
+  ansible.builtin.set_fact:
+    k_fs_tur: "{{ kurulum_fs.stdout.split()[0] }}"
+    k_bos_kb: "{{ kurulum_fs.stdout.split()[1] | int }}"
+
+- name: Refuse tmpfs
+  ansible.builtin.assert:
+    that: k_fs_tur not in ['tmpfs', 'ramfs']
+    fail_msg: "kurulum: {{ k_ana }} bir {{ k_fs_tur }} üzerinde; yeniden başlatmada veri kaybolur. Kalıcı bir dosya sistemi seçin."
+    quiet: true
+  when: kurulum_ana_durum == 'yeni'
+
+- name: Warn about low free space
+  ansible.builtin.debug:
+    msg: "kurulum: {{ k_ana }} için boş yer az ({{ (k_bos_kb / 1024) | int }} MiB); veritabanı ve imajlar için en az 2 GiB önerilir."
+  when: k_bos_kb | int < 2097152

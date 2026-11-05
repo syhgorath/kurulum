@@ -1,0 +1,22 @@
+# Aynı sunucuda iki koşu çakışmasın: /run/kurulum.lock üzerinde flock. flock bir görev boyunca tutulamadığından arka planda bir tutucu süreç
+# (timeout 1800 sleep) kilidi tutar; koşu biterse kilit bırakılır, ansible ölürse tutucu en geç 30 dk sonra kendiliğinden biter (çekirdek kilidi bırakır).
+# Kilit başkasındaysa koşu başlamaz (başkasının pid dosyasına dokunulmaz).
+- name: Acquire the run lock
+  ansible.builtin.shell: |
+    set -eu
+    st=$(mktemp)
+    setsid bash -c 'exec 9>{{ kurulum_kilit }}; flock -n 9 || { echo busy > "$1"; exit 75; }; echo $$ > "$1"; exec timeout 1800 sleep 1800' _ "$st" </dev/null >/dev/null 2>&1 &
+    for _ in $(seq 1 20); do
+      if [ -s "$st" ]; then
+        if grep -q '^busy$' "$st"; then rm -f "$st"; echo "kilit başka bir koşuda (pid $(cat {{ kurulum_kilit }}.pid 2>/dev/null || echo ?)); en geç 30 dk sonra kendiliğinden düşer" >&2; exit 75; fi
+        mv -f "$st" {{ kurulum_kilit }}.pid; exit 0
+      fi
+      sleep 0.3
+    done
+    rm -f "$st"; echo "kilit alınamadı" >&2; exit 75
+  args:
+    executable: /bin/bash
+  register: kurulum_kilit_sonuc
+  changed_when: false
+  failed_when: kurulum_kilit_sonuc.rc != 0
+  check_mode: false

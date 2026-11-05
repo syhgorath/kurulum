@@ -1,0 +1,38 @@
+# Kaldır: veriye dokunmaz. Native: servis durur/kapanır, paket 'apt remove' ile (purge YOK) çıkar, sites-available/kurulum ve içerik kalır.
+- name: Remove docker mode
+  ansible.builtin.include_tasks: "{{ playbook_dir }}/../roles/ortak/tasks/docker_uygulama_kaldir.yml"
+  when: k_kurulu and k_kayit_eski.mod == 'docker'
+
+- name: Remove native mode
+  when: k_kurulu and k_kayit_eski.mod == 'native'
+  block:
+    - name: Stop and disable nginx
+      ansible.builtin.systemd:
+        name: nginx
+        enabled: false
+        state: stopped
+      when: not ansible_check_mode
+      register: kd_nginx_dur
+    - name: Disable the managed site (link only)
+      ansible.builtin.file:
+        path: /etc/nginx/sites-enabled/kurulum
+        state: absent
+      register: kd_nginx_bag_kaldir
+    - name: Remove the package (no purge, configuration and data stay)
+      ansible.builtin.apt:
+        name: nginx
+        state: absent
+        purge: false
+      register: kd_nginx_paket_kaldir
+    - name: Record the removal in the marker
+      ansible.builtin.include_role:
+        name: ana_klasor
+        tasks_from: isaret_yaz
+      vars:
+        k_sil: true
+        k_kayit: { mod: native, surum: dagitim, veri_yolu: "{{ k_katalog.native_veri }}", kaldirilma: "{{ ansible_facts['date_time']['date'] }}" }
+
+- name: Nothing to remove
+  ansible.builtin.debug:
+    msg: "kurulum: nginx bu sunucuda kurulumla yönetilmiyor; yapılacak bir şey yok."
+  when: not k_kurulu

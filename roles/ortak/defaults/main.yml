@@ -1,0 +1,51 @@
+# Ortak varsayılanlar (component.json vars ile aynı). Playbook'lar bu dosyayı vars_files ile yükler (include_role varsayılanları sonraki görevlere açmaz);
+# sshpocket değerleri -e ile verir ve bunların üstündedir.
+kurulum_yazilim: "docker"           # docker | nginx | mariadb | redis
+kurulum_mod: "native"               # native | docker (yazilim=docker iken yok sayılır)
+kurulum_ana_klasor: "/srv/homelab"
+kurulum_docker_kaynak: "resmi"      # resmi (download.docker.com apt deposu) | dagitim (docker.io)
+kurulum_dis_erisim: false           # false = 127.0.0.1; true = 0.0.0.0 (ufw'ye YAZILMAZ, öneri gösterilir)
+kurulum_nginx_port: 8080
+kurulum_nginx_surum: "1.30.6"
+kurulum_nginx_imaj_ozel: ""
+kurulum_mariadb_port: 3306
+kurulum_mariadb_surum: "11.4.13"
+kurulum_mariadb_imaj_ozel: ""
+kurulum_redis_port: 6379
+kurulum_redis_surum: "7.4.12"
+kurulum_redis_imaj_ozel: ""
+
+# İç değerler
+kurulum_supported_os: { Ubuntu: ["26.04"] }
+kurulum_planned_os: { Debian: ["13"] }
+kurulum_surumi: "0.1.0"
+kurulum_docker_ag: "kurulum"
+kurulum_kilit: /run/kurulum.lock
+kurulum_yasak_kokler: ["/", "/etc", "/usr", "/bin", "/sbin", "/lib", "/lib64", "/boot", "/dev", "/proc", "/sys", "/run", "/var", "/root", "/home", "/tmp", "/opt", "/srv", "/mnt", "/media", "/snap"]
+kurulum_yasak_onekler: ["/etc/", "/usr/", "/bin/", "/sbin/", "/lib/", "/lib64/", "/boot/", "/dev/", "/proc/", "/sys/", "/run/", "/var/lib/docker", "/tmp/", "/snap/"]
+# Küratörlü sürümler (artan sıra; paket sürümüyle gelir). latest YOKTUR.
+kurulum_katalog:
+  nginx:
+    imaj: nginx
+    konteyner_port: 80
+    paket: nginx
+    servis: nginx
+    gizli: []
+    surumler: ["1.30.6", "1.31.8"]
+    native_veri: /var/www/html
+  mariadb:
+    imaj: mariadb
+    konteyner_port: 3306
+    paket: mariadb-server
+    servis: mariadb
+    gizli: [MARIADB_ROOT_PASSWORD]
+    surumler: ["10.11.19", "11.4.13", "11.8.9"]
+    native_veri: /var/lib/mysql
+  redis:
+    imaj: redis
+    konteyner_port: 6379
+    paket: redis-server
+    servis: redis-server
+    gizli: [REDIS_PASSWORD]
+    surumler: ["7.2.17", "7.4.12", "8.2.11", "8.4.8"]
+    native_veri: /var/lib/redis

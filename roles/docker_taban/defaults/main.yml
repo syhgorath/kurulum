@@ -1,0 +1,2 @@
+# Docker resmi apt deposu: download.docker.com. Anahtar paketle gelir (files/docker.asc), parmak izi sabit; ağdan anahtar indirilmez.
+kurulum_docker_anahtar_parmak_izi: "9DC858229FC7DD38854AE2D88D81803C0EBFCD88"

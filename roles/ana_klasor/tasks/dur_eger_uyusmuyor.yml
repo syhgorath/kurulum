@@ -1,0 +1,8 @@
+- name: Stop when the local and server ana klasör differ
+  ansible.builtin.assert:
+    that: kurulum_ana_durum in ['yeni', 'tamam']
+    fail_msg: >-
+      {{ 'kurulum: ana klasör sunucuda ' ~ k_ana_sunucu ~ ', yerelde ' ~ k_ana ~ '. Durduruldu; hiçbir şey değiştirilmedi. Hangisine uyulacağına siz karar verin: yerel kurulum_ana_klasor değerini sunucudakine çevirin (sunucudaki kaynaktır).'
+         if kurulum_ana_durum == 'uyusmuyor' else
+         'kurulum: ' ~ k_ana_sunucu ~ '/.kurulum işaret dosyası yok (ana klasör silinmiş ya da taşınmış olabilir). Durduruldu; elle inceleyin.' }}
+    quiet: true

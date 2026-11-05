@@ -1,0 +1,40 @@
+# Ana klasörü ve sunucu işaretlerini oluşturur (idempotent). İşaret içeriği isaret_yaz.yml ile yazılır.
+- name: Create /etc/kurulum
+  ansible.builtin.file:
+    path: /etc/kurulum
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  register: kd_etc_dizin
+
+- name: Write the server locator
+  ansible.builtin.copy:
+    dest: /etc/kurulum/ana
+    content: "{{ k_ana }}\n"
+    owner: root
+    group: root
+    mode: "0644"
+  register: kd_locator
+
+- name: Create the ana klasör (0750 root)
+  ansible.builtin.file:
+    path: "{{ k_ana }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0750"
+  register: kd_ana_dizin
+
+- name: Write the shared non-secret .env
+  ansible.builtin.copy:
+    dest: "{{ k_ana }}/.env"
+    content: |
+      # kurulum: gizli OLMAYAN ortak değerler (gizli değerler <uygulama>/.env içindedir). Elle eklenen satırlar korunur.
+      KURULUM_ANA_KLASOR={{ k_ana }}
+      KURULUM_DOCKER_AG={{ kurulum_docker_ag }}
+    force: false
+    owner: root
+    group: root
+    mode: "0640"
+  register: kd_ortak_env

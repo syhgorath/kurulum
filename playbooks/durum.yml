@@ -1,0 +1,33 @@
+# Salt okunur durum: ana klasör, Docker, kurulu yazılımlar ve portlar. Hiçbir şey değiştirmez. İşaret dosyası 0640 root olduğundan sudo ister.
+# Sonuç satırı: SSHPOCKET_RESULT kurulum.durum ana_durum=… docker=… kurulu=… portlar=…
+- name: kurulum durum (salt okunur)
+  hosts: kurulum
+  gather_facts: true
+  gather_subset: [min]
+  become: true
+  vars_files:
+    - ../roles/ortak/defaults/main.yml
+  vars:
+    kurulum_islem: durum
+  tasks:
+    - name: Preflight
+      ansible.builtin.include_role: {name: ortak, tasks_from: preflight}
+    - name: Ana klasör
+      ansible.builtin.include_role: {name: ana_klasor, tasks_from: kontrol}
+    - name: Docker
+      ansible.builtin.include_role: {name: docker_kontrol}
+    - name: Listening ports
+      ansible.builtin.include_role: {name: port_kaydi, tasks_from: durum}
+    - name: Human-readable status
+      ansible.builtin.debug:
+        msg:
+          - "ana klasör (sunucu): {{ k_ana_sunucu or '(yok)' }}; istenen: {{ k_ana }}; durum: {{ kurulum_ana_durum }}"
+          - "docker: {{ kurulum_docker_durum }} (compose: {{ kurulum_docker_compose }})"
+          - "kurulu: {{ k_isaret.yazilimlar | default({}) | dict2items | map(attribute='key') | list | join(', ') or '(yok)' }}"
+          - "{{ k_durum_satirlari }}"
+    - name: Result line
+      ansible.builtin.debug:
+        msg: >-
+          SSHPOCKET_RESULT kurulum.durum ana_durum={{ kurulum_ana_durum }} docker={{ kurulum_docker_durum }}
+          kurulu={{ k_kurulu_ozet | regex_replace('[^A-Za-z0-9_.:+-]', '_') | truncate(64, True, '') }}
+          portlar={{ k_port_ozet | regex_replace('[^A-Za-z0-9_.:+-]', '_') | truncate(64, True, '') }}
