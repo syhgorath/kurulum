@@ -187,3 +187,9 @@ setup_file() {
   [ "$status" -eq 0 ]
   [[ "$(result)" == "SSHPOCKET_RESULT kurulum.durum ana_durum=tamam docker=resmi kurulu=docker:native+mariadb:docker+nginx:docker+redis:docker portlar=mariadb:3306+nginx:8080+redis:6379" ]]
 }
+
+@test "TEMİZ ÇIKTI: hiçbir koşuda [WARNING] / [DEPRECATION WARNING] yok" {
+  run grep -nE '\[(DEPRECATION )?WARNING\]' "$BATS_FILE_TMPDIR/hepsi.log"
+  echo "$output" >&3
+  [ "$status" -eq 1 ]
+}

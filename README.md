@@ -2,12 +2,12 @@
 
 [sshpocket](https://github.com/syhgorath/sshpocket) paketi: sunucuya **Docker taban kurulumu, nginx, MariaDB ve Redis** kurar (her biri **native** ya da **Docker** modunda), önizleyerek, sürümü sabitleyerek ve **veriyi silmeden**. Menüdeki adı **"Kurulum merkezi"**dir (paket kimliği `kurulum`).
 
-> **Durum: v0.1.0 (yayın öncesi).** Aşağıdaki "Neyin denendiği" tablosu gerçeği söyler: tüm testler **LAB konteynerindedir** (Ubuntu 26.04, arm64); **gerçek VM turu henüz yapılmadı** ve yayın için şarttır ([docs/vm-turu.md](docs/vm-turu.md)). Debian 13 henüz hiçbir ortamda denenmedi.
+> **Durum: v0.1.0 (yayın öncesi).** Aşağıdaki "Neyin denendiği" tablosu gerçeği söyler: LAB (Ubuntu 26.04 arm64 konteyner) testleri tamam; **gerçek VM turu sürüyor** (Ubuntu 26.04 amd64'te Docker taban, nginx ve MariaDB docker denendi, kalanı bekliyor) ve yayın için tamamlanması şarttır ([docs/vm-turu.md](docs/vm-turu.md)). Debian 13 henüz hiçbir ortamda denenmedi.
 
 ## Profiller
 | Profil | Durum | Not |
 |---|---|---|
-| `ubuntu-26.04` | supported | LAB'da denendi (arm64 konteyner). **Gerçek VM turu bekliyor**; doğrulayıcı en az bir `supported` profil istediği için işaretli, yayın VM turuna bağlıdır |
+| `ubuntu-26.04` | supported | LAB'da (arm64 konteyner) ve **kısmen gerçek VM'de** (amd64, ubuntutest, doğrudan playbook, hardening'siz) denendi; VM turu sürüyor, ayrıntı aşağıda |
 | `debian-13` | planned | Playbook çalışır olmalı ama **hiçbir yerde denenmedi** (ne konteyner ne VM). VM turunda doğrulanınca `supported` yapılır |
 
 Proxmox VE bilerek reddedilir (`/usr/bin/pveversion` ya da `/etc/pve` varsa `--check` dahil durur); Raspberry Pi kapsam dışı.
@@ -62,7 +62,8 @@ Ayrıntı sonuçlar CHANGELOG'dadır. Özet:
 | `component_validate.py . --strict --unsigned` (`git archive` arşivi) | temiz |
 | LAB (Colima + systemd'li `ubuntu:26.04` arm64 konteyneri, iç içe Docker): `lab-docker.bats` / `lab-native.bats` | 20/20 ve 10/10: idempotans, yükseltmede veri duruyor, kaldır veriyi bırakır, parola sızmıyor (ayrıntı CHANGELOG) |
 | `test/run-all.sh` (statik desen denetimi, release betikleri, tutarlılık) | yeşil |
-| Gerçek VM (ubuntutest, debiantest), hardening'li iki sıralı tur, yükseltme testi VM'de, sshpocket menüsü | **denenmedi** |
+| **Gerçek VM** ubuntutest (Ubuntu 26.04 **amd64**, hardening'siz, doğrudan playbook, `sudo.ws`) | ✅ `durum` (temiz VM); Docker taban `preview` ve `kur` (docker-ce 29.9.3, Compose v5.7.0, resmi depo, anahtar paketten), **ikinci `kur` changed=0**; nginx docker kur (200, `127.0.0.1:8080`) ve ikinci kur changed=0; MariaDB docker 10.11.19 kur, **parola sızıntı testi 0 eşleşme**, **yükseltme 10.11.19→11.4.13** (döküm alındı, veri `42` duruyor, parola yeniden üretilmedi), yükseltme sonrası kur changed=0 |
+| Gerçek VM: Redis/nginx yükseltme, `kaldir` + yeniden kur, native modlar, debiantest, hardening'li iki sıralı tur, sshpocket menüsü | **denenmedi** |
 | Debian 13 (konteyner dahil); `kurulum_docker_kaynak=dagitim` | **denenmedi** (yalnızca Debian deposunun varlığı `apt -s` ile görüldü) |
 | amd64 (LAB arm64) | **denenmedi** |
 

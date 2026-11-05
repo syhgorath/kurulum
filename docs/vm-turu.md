@@ -11,6 +11,8 @@
 printf 'kurulum:\n  hosts:\n    vm:\n      ansible_host: 192.168.1.183\n      ansible_user: KULLANICI\n' > /tmp/kurulum-inv.yml
 ```
 - ssh anahtarınız parolalıysa önce `ssh-add` (Ansible parola soramaz). Komutlardaki `-e ansible_become_exe=/usr/bin/sudo.ws` **yalnızca Ubuntu 26.04** içindir; Debian 13'te kaldırın.
+- **`durum` da sudo ister** (işaret dosyası root'a ait, 0640; ana klasör 0750): `--ask-become-pass` olmadan "sudo: interactive authentication is required" ile düşer. Bu yüzden `$AP` HER playbook'ta (durum dahil) `--ask-become-pass` taşır.
+- sunucuda `sudo` ssh ile çalışıyorsa `ssh -t` kullanın (sudo parola için terminal ister); `*` içeren yollar **yetkisiz kabukta** açılır ve ana klasör 0750 root olduğundan boş/"No such file" döner: glob'lu komutları `sudo sh -c '...'` içinde çalıştırın.
 - Aşağıdaki `$AP` kısaltması: `AP=".venv/bin/ansible-playbook -i /tmp/kurulum-inv.yml --ask-become-pass"` (Ubuntu için sonuna `-e ansible_become_exe=/usr/bin/sudo.ws` ekleyin).
 - Sunucuda gizli değer ÜRETİLİR ve ekrana yazılmaz; bu tur boyunca parolayı kopyalamayın. Bağlanmanız gerekirse sunucuda `sudo` ile `.env` dosyasından okunur.
 
@@ -29,27 +31,33 @@ $AP playbooks/kur.yml -e kurulum_yazilim=nginx -e kurulum_mod=docker
 ```
 Bağımsız salt okunur doğrulama (ayrı ssh oturumu):
 ```bash
-ssh KULLANICI@IP 'sudo cat /srv/homelab/.kurulum; sudo ls -la /srv/homelab /srv/homelab/nginx; sudo docker ps; ss -ltn | grep -E ":(8080|3306|6379) "; curl -sI http://127.0.0.1:8080 | head -1'
+ssh -t KULLANICI@IP "sudo sh -c 'cat /srv/homelab/.kurulum; ls -la /srv/homelab /srv/homelab/nginx; docker ps'"
+ssh KULLANICI@IP 'ss -ltn | grep -E ":(8080|3306|6379) "; curl -sI http://127.0.0.1:8080 | head -1'
 ```
 İkinci önizleme/kur `changed=0` olmalı:
 ```bash
 $AP playbooks/preview.yml --check --diff -e kurulum_yazilim=nginx -e kurulum_mod=docker
 $AP playbooks/kur.yml -e kurulum_yazilim=nginx -e kurulum_mod=docker
 ```
-Parola sızıntı kontrolü: kur çıktısını kaydedip (`| tee /tmp/kur.log`) sunucudaki parolanın **kaydında bulunmadığını** doğrulayın (parolayı komut satırına yazmadan, sunucuda): `ssh KULLANICI@IP 'sudo sh -c "pw=\$(grep ^MARIADB_ROOT_PASSWORD= /srv/homelab/mariadb/.env | cut -d= -f2-); grep -cF -- \"\$pw\" /dev/stdin"' < /tmp/kur.log` → `0` beklenir.
+Parola sızıntı kontrolü (kur çıktısını `$AP playbooks/kur.yml … | tee /tmp/kur-mariadb.log` ile kaydedin; parolayı komut satırına yazmadan, SUNUCUDA sayılır). `ssh -t` ile stdin yönlendirmesi çalışmaz (sudo terminal ister), bu yüzden günlük önce kopyalanır:
+```bash
+scp /tmp/kur-mariadb.log KULLANICI@IP:/tmp/kur-mariadb.log
+ssh -t KULLANICI@IP "sudo sh -c 'pw=\$(grep ^MARIADB_ROOT_PASSWORD= /srv/homelab/mariadb/.env | cut -d= -f2-); echo eslesen_satir=\$(grep -cF -- \"\$pw\" /tmp/kur-mariadb.log)'; rm -f /tmp/kur-mariadb.log"
+```
+`eslesen_satir=0` beklenir (parola bulunamamalı).
 
 ## Yükseltme testi (kabul ölçütü: geçmeden yayın yok)
 1. Eski sürümü kur: `-e kurulum_yazilim=mariadb -e kurulum_mod=docker -e kurulum_mariadb_surum=10.11.19`.
 2. Veri yaz (sunucuda): `sudo docker exec kurulum-mariadb sh -c 'mariadb -uroot -p"$MARIADB_ROOT_PASSWORD" -e "CREATE DATABASE t; CREATE TABLE t.k(a int); INSERT INTO t.k VALUES (42)"'`.
 3. Yeni sürüme yükselt: `$AP playbooks/yukselt.yml -e kurulum_yazilim=mariadb -e kurulum_mod=docker -e kurulum_mariadb_surum=11.4.13`.
-4. Veri duruyor mu: `sudo docker exec kurulum-mariadb sh -c 'mariadb -uroot -p"$MARIADB_ROOT_PASSWORD" -N -e "SELECT a FROM t.k"'` → `42`; döküm: `sudo ls -l /srv/homelab/mariadb/yedek/*/` (dizin 0700, dosya 0600).
+4. Veri duruyor mu: `sudo docker exec kurulum-mariadb sh -c 'mariadb -uroot -p"$MARIADB_ROOT_PASSWORD" -N -e "SELECT a FROM t.k"'` → `42`; döküm: `ssh -t KULLANICI@IP "sudo sh -c 'ls -ld /srv/homelab/mariadb/yedek /srv/homelab/mariadb/yedek/*/; ls -l /srv/homelab/mariadb/yedek/*/'"` (yedek dizinleri `drwx------`, `dump.sql` `-rw-------`).
 5. Aynısını `redis` (`7.2.17` → `7.4.12`, `SET k v` / `GET k`) ve `nginx` (`1.30.6` → `1.31.8`) için yapın.
 6. Tekrar `kur` (yeni sürümle) `changed=0`.
 
 ## Kaldır (veri kalmalı)
 ```bash
 $AP playbooks/kaldir.yml -e kurulum_yazilim=redis -e kurulum_mod=docker -e kurulum_redis_surum=7.4.12
-ssh KULLANICI@IP 'sudo ls -la /srv/homelab/redis /srv/homelab/redis/data; sudo docker ps -a'
+ssh -t KULLANICI@IP "sudo sh -c 'ls -la /srv/homelab/redis /srv/homelab/redis/data; docker ps -a'"
 $AP playbooks/kur.yml -e kurulum_yazilim=redis -e kurulum_mod=docker -e kurulum_redis_surum=7.4.12   # veri geri gelmeli
 ```
 Native: `kaldir` paketi `apt remove` ile çıkarır; `/var/lib/mysql`, `/var/lib/redis`, `/etc/*` **kalır** (purge yok).

@@ -108,3 +108,11 @@ setup_file() {
   krun kaldir -e kurulum_yazilim=mariadb
   [ "$(recap_changed)" = 0 ]
 }
+
+@test "durum (native karışık) ve TEMİZ ÇIKTI: hiçbir koşuda [WARNING] / [DEPRECATION WARNING] yok" {
+  krun durum
+  [ "$status" -eq 0 ]
+  run grep -nE '\[(DEPRECATION )?WARNING\]' "$BATS_FILE_TMPDIR/hepsi.log"
+  echo "$output" >&3
+  [ "$status" -eq 1 ]
+}
