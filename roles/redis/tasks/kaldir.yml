@@ -25,6 +25,10 @@
       vars:
         k_sil: true
         k_kayit: { mod: native, surum: dagitim, veri_yolu: "{{ k_katalog.native_veri }}", kaldirilma: "{{ ansible_facts['date_time']['date'] }}" }
+    - name: Remove the connection keys from the shared .env
+      ansible.builtin.include_role:
+        name: env_dosyalari
+        tasks_from: temizle
 
 - name: Nothing to remove
   ansible.builtin.debug:

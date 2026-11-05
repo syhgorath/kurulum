@@ -1,0 +1,9 @@
+# kaldir sonrası: <ana>/.env içindeki bu yazılımın bağlantı anahtarlarını (<YZ>_HOST, _PORT, _HOST_PORT) siler; aksi halde tüketiciler silinmiş
+# servisi bulmaya çalışır. Gizli olmayan değerlerdir. Gizli <ana>/<yz>/.env (parola) SİLİNMEZ (yeniden kur aynı parolayı kullanır).
+- name: Remove the connection keys of the removed software
+  ansible.builtin.lineinfile:
+    path: "{{ k_ana }}/.env"
+    regexp: "^{{ k_yz | upper }}_(HOST|PORT|HOST_PORT)="
+    state: absent
+  register: kd_env_temizle
+  when: not (ansible_check_mode and kurulum_ana_durum == 'yeni')

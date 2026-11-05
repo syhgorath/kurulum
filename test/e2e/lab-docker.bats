@@ -160,6 +160,9 @@ setup_file() {
 @test "KALDIR: konteyner gider, veri/.env/compose kalır; yeniden kur veriyi bulur" {
   krun kaldir -e kurulum_yazilim=mariadb -e kurulum_mod=docker -e kurulum_mariadb_surum=11.4.13
   [ "$status" -eq 0 ]
+  # V02: ortak .env'de kaldırılan uygulamanın bağlantı anahtarları temizlenir, diğerlerinin kalır; gizli .env (parola) kalır
+  run lab sh -c 'grep -c "^MARIADB_" /srv/homelab/.env; grep -c "^NGINX_" /srv/homelab/.env; grep -c "^MARIADB_ROOT_PASSWORD=" /srv/homelab/mariadb/.env'
+  [ "${lines[0]}" = 0 ] && [ "${lines[1]}" = 3 ] && [ "${lines[2]}" = 1 ]
   run lab sh -c 'docker ps -a --format "{{.Names}}" | grep -c mariadb; test -d /srv/homelab/mariadb/data/t && test -f /srv/homelab/mariadb/.env && test -f /srv/homelab/mariadb/compose.yml && echo kaldi'
   [ "${lines[0]}" = 0 ] && [ "${lines[1]}" = kaldi ]
   krun kaldir -e kurulum_yazilim=mariadb -e kurulum_mod=docker -e kurulum_mariadb_surum=11.4.13
@@ -167,6 +170,8 @@ setup_file() {
   krun kur -e kurulum_yazilim=mariadb -e kurulum_mod=docker -e kurulum_mariadb_surum=11.4.13
   [ "$status" -eq 0 ]
   [[ "$(result)" == *"gizli=0" ]]
+  run lab sh -c 'grep -c "^MARIADB_" /srv/homelab/.env'
+  [ "$output" = 3 ]
   run lab sh -c 'docker exec kurulum-mariadb sh -c "mariadb -uroot -p\"\$MARIADB_ROOT_PASSWORD\" -N -e \"SELECT a FROM t.k\""'
   [ "$output" = 42 ]
 }

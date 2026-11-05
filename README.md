@@ -2,7 +2,7 @@
 
 [sshpocket](https://github.com/syhgorath/sshpocket) paketi: sunucuya **Docker taban kurulumu, nginx, MariaDB ve Redis** kurar (her biri **native** ya da **Docker** modunda), önizleyerek, sürümü sabitleyerek ve **veriyi silmeden**. Menüdeki adı **"Kurulum merkezi"**dir (paket kimliği `kurulum`).
 
-> **Durum: v0.1.0 (yayın öncesi).** Aşağıdaki "Neyin denendiği" tablosu gerçeği söyler: LAB (Ubuntu 26.04 arm64 konteyner) testleri tamam; **gerçek VM turu sürüyor** (Ubuntu 26.04 amd64'te Docker taban, nginx ve MariaDB docker denendi, kalanı bekliyor) ve yayın için tamamlanması şarttır ([docs/vm-turu.md](docs/vm-turu.md)). Debian 13 henüz hiçbir ortamda denenmedi.
+> **Durum: v0.1.0 (yayın öncesi).** Aşağıdaki "Neyin denendiği" tablosu gerçeği söyler: LAB (Ubuntu 26.04 arm64 konteyner) testleri tamam; **gerçek VM turu (Ubuntu 26.04 amd64) büyük ölçüde yapıldı**, hardening'li iki sıralı tur bekliyor ve yayın için tamamlanması şarttır ([docs/vm-turu.md](docs/vm-turu.md)). Debian 13 henüz hiçbir ortamda denenmedi.
 
 ## Profiller
 | Profil | Durum | Not |
@@ -47,6 +47,12 @@ Küratörlü sürümler (artan; paket sürümüyle gelir): nginx `1.30.6`, `1.31
 - **Port çakışması:** `ss` + işaret dosyası; "3306 portu mariadb uygulamasına verilmiş, boş port önerisi: 3307".
 - **Eşzamanlılık:** sunucuda `/run/kurulum.lock` üzerinde `flock`; ikinci koşu durur. Tutucu süreç en geç 30 dk sonra kendiliğinden düşer.
 
+## Native ve Docker modu: farklar (gerçek VM'de görüldü)
+- **Modlar arası veri taşıma YOKTUR.** Docker modunun verisi `<ana>/<yazılım>/data`, native modun verisi dağıtım yerindedir (`/var/lib/mysql`, `/var/lib/redis`). `kaldir` ile modu değiştirince eski modun verisi **kullanılmaz** (silinmez, orada durur); taşımayı kendiniz yaparsınız.
+- **Sürümler aynı değildir:** native, dağıtım paketinin sürümünü verir (Ubuntu 26.04 VM'de nginx 1.28.3, MariaDB 11.8.6, Redis 8.0.5); docker modu küratörlü sabit etiketi (örn. Redis 7.4.12). Aynı yazılımın iki modu aynı sürümü vermez.
+- **Ortak `.env` anahtarları aynı, değerleri moda göre değişir:** `NGINX_HOST`/`_PORT` docker modunda servis adı ve konteyner portu (`nginx`, `80`), native modda `127.0.0.1` ve yayınlanan port (`8080`). Yayınlanan port her iki modda `<YZ>_HOST_PORT`'tur. Mod değişince tüketicilerin bu değerleri yeniden okuması gerekir.
+- **`kaldir` ortak `<ana>/.env`'deki o yazılımın bağlantı anahtarlarını siler** (`<YZ>_HOST`, `_PORT`, `_HOST_PORT`; sır değil); yeniden `kur` yazar. Gizli `<ana>/<yazılım>/.env` (parola) silinmez: yeniden kur ve mod değişimi aynı parolayı kullanır.
+
 ## ufw ve linux-hardening
 `kurulum` ufw'ye **yazmaz** (tek sahibi linux-hardening). `kurulum_dis_erisim=true` yapıldığında çıktı, `servers/<ad>/linux-hardening.vars` içindeki `hardening_ufw_extra_allow_host` listesine eklenecek kuralı **önerir** (`from <yönetim ağı> to any port N proto tcp`, `any` değil). Ansible liste değişkenlerini birleştirmez, üzerine yazar: öneriyi mevcut listeye siz eklersiniz. **Docker yayınlanan portu ufw'yi atlayarak açar** (LAB'da Docker 29.1.3 ile doğrulandı); `DOCKER-USER` ile kısıtlama denenmedi. Varsayılan `127.0.0.1` yayınında kural gerekmez. Hardening'le birlikte kullanım **VM'de denenmedi** (docs/vm-turu.md "Hardening turları"): `hardening_kernel_modules_disabled=true` Docker'ı bozar (kurulum sonra); `hardening_ufw_outgoing_deny` açıksa `apt` ve `docker pull` kapanır; `/tmp` noexec ve AppArmor'un MariaDB'ye etkisi doğrulanmadı.
 
@@ -62,9 +68,9 @@ Ayrıntı sonuçlar CHANGELOG'dadır. Özet:
 | `component_validate.py . --strict --unsigned` (`git archive` arşivi) | temiz |
 | LAB (Colima + systemd'li `ubuntu:26.04` arm64 konteyneri, iç içe Docker): `lab-docker.bats` / `lab-native.bats` / `lab-preview.bats` | 21/21, 11/11 ve 8/8: idempotans, yükseltmede veri duruyor, kaldır veriyi bırakır, parola sızmıyor (ayrıntı CHANGELOG) |
 | `test/run-all.sh` (statik desen denetimi, release betikleri, tutarlılık) | yeşil |
-| **Gerçek VM** ubuntutest (Ubuntu 26.04 **amd64**, hardening'siz, doğrudan playbook, `sudo.ws`) | ✅ `durum` (temiz VM); Docker taban `preview` ve `kur` (docker-ce 29.9.3, Compose v5.7.0, resmi depo, anahtar paketten), **ikinci `kur` changed=0**; nginx docker kur (200, `127.0.0.1:8080`) ve ikinci kur changed=0; MariaDB docker 10.11.19 kur, **parola sızıntı testi 0 eşleşme**, **yükseltme 10.11.19→11.4.13** (döküm alındı, veri `42` duruyor, parola yeniden üretilmedi), yükseltme sonrası kur changed=0 |
-| Gerçek VM: Redis/nginx yükseltme, `kaldir` + yeniden kur, native modlar, debiantest, hardening'li iki sıralı tur, sshpocket menüsü | **denenmedi** |
-| Debian 13 (konteyner dahil); `kurulum_docker_kaynak=dagitim` | **denenmedi** (yalnızca Debian deposunun varlığı `apt -s` ile görüldü) |
+| **Gerçek VM** ubuntutest (Ubuntu 26.04 **amd64**, hardening'siz, doğrudan playbook) | ✅ Docker taban (kur, ikinci kur changed=0); docker modu nginx/MariaDB/Redis kur + ikinci kur changed=0, parola sızıntısı 0 eşleşme, **yükseltme** (MariaDB 10.11.19→11.4.13 veri duruyor, Redis 7.2.17→7.4.12 anahtar duruyor, nginx 1.30.6→1.31.8), **kaldır** (veri/.env/compose kalır; Redis yeniden kur veri ve parolayı korudu); **native** nginx/MariaDB/Redis kur + ikinci kur changed=0. Ayrıntı CHANGELOG |
+| Gerçek VM: hardening'li iki sıralı tur, native Redis'te yeni parola üretimi, düzeltilmiş native Redis `preview`, sshpocket menüsü | **denenmedi** |
+| Debian 13 (konteyner dahil); `kurulum_docker_kaynak=dagitim` | **denenmedi** (yalnızca Debian deposunun varlığı `apt -s` ile görüldü). Profil `planned` kalır; v0.1.0 yalnızca Ubuntu 26.04 içindir |
 | amd64 (LAB arm64) | **denenmedi** |
 
 ## Geliştirme
