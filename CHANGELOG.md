@@ -4,6 +4,9 @@ Biçim [Keep a Changelog](https://keepachangelog.com/) esas alınmıştır.
 
 ## [Unreleased]
 
+### Düzeltilen
+- `release-publish.sh` 6) indeks adımı `index-publish.sh`'e `--yes` geçirir (betiğin başındaki y/N zaten yayın onayı; ikinci onay etkileşimsiz pencerede düşüyordu). Yeniden çalıştırma komutu ve `--dry-run` planı da `--yes` gösterir. Gerçek `index-publish.sh` ile **denenmedi**.
+
 ### Değişti
 - `scripts/release-publish.sh`: Release ve özet doğrulamasından sonra imzalı paket indeksini günceller (`SSHPOCKET_INDEX_DIR/scripts/index-publish.sh`, `--dry-run` listesinde 6. adım); indeks hatası yayımlanmış Release'i geçersiz kılmaz, betik tek başına yeniden çalıştırılabilir. Normal sürümde `components.lock` PR'ı gerekmez. Yayın betiği değişikliği; paket sürümü değişmez. `index-publish.sh` henüz yok: testler sahte betikle yapıldı, gerçek betikle **denenmedi**.
 

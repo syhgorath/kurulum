@@ -59,7 +59,8 @@ fresh; out=$(pub --dry-run); rc=$?
 expect_eq "dry-run cikis 0" "0" "$rc"
 expect_contains "  plan: etiket" "$out" "git tag -a v$V"
 expect_contains "  plan: gh release create" "$out" "gh release create v$V"
-expect_contains "  plan: 6) indeks" "$out" "6) indeks"
+expect_contains "  plan: 6) indeks (--yes ile)" "$out" "6) indeks"
+expect_contains "  plan: 6) satiri --yes gosterir" "$out" "--sig dist/kurulum-$V.tar.gz.sig --yes"
 if [ -f "$TMP/index.log" ]; then bad "dry-run indeks betigini CAGIRDI"; else ok "dry-run indeks betigini cagirmadi"; fi
 expect_contains "  [dry-run] hicbir sey yapilmadi" "$out" "[dry-run] hiçbir şey yapılmadı"
 if (cd "$TMP/r" && git rev-parse -q --verify "refs/tags/v$V" >/dev/null); then bad "dry-run etiket OLUSTURDU"; else ok "dry-run etiket olusturmadi"; fi
@@ -99,7 +100,7 @@ expect_not_contains "  Release notlari bir sonraki surum basligini icermez" "$no
 expect_contains "  ozet dogrulandi mesaji" "$out" "yüklenen dosyaların özeti yerelle aynı"
 expect_contains "  components.lock bilgisi: SHA-256" "$out" "SHA-256"
 expect_contains "  components.lock bilgisi: imzalayici satiri" "$out" 'namespaces="sshpocket-component"'
-expect_contains "  indeks: ID, surum, depo, arsiv ve imza iletildi" "$(cat "$TMP/index.log" 2>/dev/null)" "kurulum $V sahip/depo --archive dist/kurulum-$V.tar.gz --sig dist/kurulum-$V.tar.gz.sig"
+expect_contains "  indeks: ID, surum, depo, arsiv ve imza iletildi" "$(cat "$TMP/index.log" 2>/dev/null)" "kurulum $V sahip/depo --archive dist/kurulum-$V.tar.gz --sig dist/kurulum-$V.tar.gz.sig --yes"
 expect_contains "  indeks guncellendi mesaji" "$out" "indeks güncellendi"
 expect_not_contains "  lock PR'i artik gerekmez notu" "$out" "SİZ güncelleyin"
 expect_not_contains "  sshpocket reposuna dokunmaz (components.lock yazilmaz)" "$out" "components.lock'a yazıldı"
@@ -111,6 +112,7 @@ fresh; rm -f "$TMP/index.log"; export FAKE_INDEX_FAIL=1; out=$(pub --yes); rc=$?
 expect_eq "indeks hatasi cikis 1" "1" "$rc"
 expect_contains "  Release yine de yayimlandi" "$(cat "$TMP/gh.create" 2>/dev/null)" "--verify-tag"
 expect_contains "  tek basina yeniden calistirilabilir" "$out" "tek başına yeniden çalıştırılabilir"
+expect_contains "  yeniden calistirma komutu --yes icerir" "$out" "tar.gz.sig --yes"
 expect_contains "  SHA-256 yine yazilir" "$out" "SHA-256"
 echo "-- onay sorulmadan (--yes olmadan, stdin yok) iptal"
 fresh; out=$(pub </dev/null); rc=$?
