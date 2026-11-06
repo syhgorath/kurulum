@@ -16,3 +16,8 @@
       surum: "{{ k_isaret.yazilimlar[k_yz].surum }}"
       veri_yolu: "{{ k_ana }}/{{ k_yz }}/data"
       kaldirilma: "{{ ansible_facts['date_time']['date'] }}"
+
+- name: Remove the connection keys from the shared .env
+  ansible.builtin.include_role:
+    name: env_dosyalari
+    tasks_from: temizle

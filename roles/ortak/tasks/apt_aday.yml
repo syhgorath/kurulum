@@ -1,0 +1,25 @@
+# apt dizini bayat/boşsa güncelle. Girdi: k_apt_paketler (liste). apt'in `cache_valid_time` kontrolü yetmez: indeks silinmiş ya da önceki `update` düşmüş
+# olsa bile "yakın zamanda güncellendi" sayılabilir ve paket "No package matching ... is available" ile bulunamaz (gerçek VM bulgusu V04).
+# Aday sorgusu salt okunurdur (--check'te de çalışır); güncelleme yalnızca aday YOKSA yapılır.
+- name: Look up install candidates (read-only)
+  ansible.builtin.shell: |
+    for p in {{ k_apt_paketler | join(' ') }}; do
+      c=$(apt-cache policy "$p" 2>/dev/null | awk '/Candidate:/{print $2}')
+      case "$c" in ""|"(none)") echo "$p" ;; esac
+    done
+  args:
+    executable: /bin/bash
+  register: kurulum_apt_aday
+  changed_when: false
+  check_mode: false
+
+- name: Refresh the package index (no candidate for {{ k_apt_paketler | join(', ') }})
+  ansible.builtin.apt:
+    update_cache: true
+  register: kd_apt_indeks
+  when: kurulum_apt_aday.stdout | trim != ''
+
+# --check'te indeks gerçekten yenilenmez; paketin kurulacağı görevler bunu görüp atlar (önizleme "indeks yenilenecek, paket kurulacak" der).
+- name: Remember a stale index
+  ansible.builtin.set_fact:
+    k_apt_bayat: "{{ kurulum_apt_aday.stdout | trim != '' }}"

@@ -102,6 +102,8 @@ setup_file() {
   [ "$status" -eq 0 ]
   krun kaldir -e kurulum_yazilim=nginx
   [ "$status" -eq 0 ]
+  run lab sh -c 'grep -cE "^(NGINX|MARIADB|REDIS)_" /srv/homelab/.env'
+  [ "$output" = 0 ]
   run lab sh -c 'test -d /var/lib/mysql/t && echo mysql-veri; test -f /etc/redis/redis.conf && echo redis-conf; test -f /etc/nginx/nginx.conf && echo nginx-conf; test -d /var/lib/redis && echo redis-veri; ss -ltnH | grep -cE ":(8080|3306|6379) " || true'
   [[ "$output" == *mysql-veri* && "$output" == *redis-conf* && "$output" == *nginx-conf* && "$output" == *redis-veri* ]]
   [ "${lines[${#lines[@]}-1]}" = 0 ]

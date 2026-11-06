@@ -20,6 +20,7 @@ kurulum_supported_os: { Ubuntu: ["26.04"] }
 kurulum_planned_os: { Debian: ["13"] }
 kurulum_surumi: "0.1.0"
 kurulum_docker_ag: "kurulum"
+kurulum_saat_esigi_sn: 3600          # sunucu/kontrol makinesi saat farkı bunu aşarsa UYARI (koşu durmaz)
 kurulum_kilit: /run/kurulum.lock
 kurulum_yasak_kokler: ["/", "/etc", "/usr", "/bin", "/sbin", "/lib", "/lib64", "/boot", "/dev", "/proc", "/sys", "/run", "/var", "/root", "/home", "/tmp", "/opt", "/srv", "/mnt", "/media", "/snap"]
 kurulum_yasak_onekler: ["/etc/", "/usr/", "/bin/", "/sbin/", "/lib/", "/lib64/", "/boot/", "/dev/", "/proc/", "/sys/", "/run/", "/var/lib/docker", "/tmp/", "/snap/"]
