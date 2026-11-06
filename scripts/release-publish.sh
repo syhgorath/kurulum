@@ -7,6 +7,7 @@
 #   --yes (onay sorma), --no-ci-check (main CI kontrolünü atla: önerilmez)
 #
 # Release doğrulandıktan sonra imzalı paket indeksi güncellenir (6): SSHPOCKET_INDEX_DIR (varsayılan ~/Developer/sshpocket-index) altındaki scripts/index-publish.sh.
+# Buradaki y/N zaten yayın onayıdır: indeks betiğine --yes geçilir (ikinci onay etkileşimsiz pencerede düşerdi).
 # İndeks hatası yayımlanmış Release'i geçersiz kılmaz; index-publish.sh tek başına yeniden çalıştırılabilir.
 # Özel imza anahtarı ASLA repoya, CI'a veya sohbete konmaz; yalnızca release.sh'e PAKET_SIGNING_KEY ile aktarılır. components.lock sshpocket reposundadır: bu betik ona DOKUNMAZ,
 # yalnızca yazılacak SHA-256 ve imzalayıcı satırını yazdırır. Ayrıntı: README.md "Sürüm yayını".
@@ -75,7 +76,7 @@ echo "  2) scripts/release.sh  (paket + imza + kendi doğrulaması)"
 echo "  3) gh release create $TAG $ARCHIVE $ARCHIVE.sig --title $TAG --notes-file <CHANGELOG [$VERSION] bölümü, $(wc -l < "$NOTES" | tr -d ' ') satır>"
 echo "  4) yüklenen dosyaların SHA-256 özetini yerel dosyalarla karşılaştır"
 echo "  5) SHA-256 ve imzalayıcı satırını yazdır (bilgi; normal sürümde components.lock PR'ı GEREKMEZ, indeks halleder)"
-echo "  6) indeks: $INDEX_PUBLISH $ID $VERSION <sahip/depo> --archive $ARCHIVE --sig $ARCHIVE.sig  (yerel commit; push sizde)"
+echo "  6) indeks: $INDEX_PUBLISH $ID $VERSION <sahip/depo> --archive $ARCHIVE --sig $ARCHIVE.sig --yes  (yerel commit; push sizde)"
 if [ "$DRY" = 1 ]; then echo "[dry-run] hiçbir şey yapılmadı."; exit 0; fi
 if [ "$YES" = 0 ]; then
     read -r -p "Devam edilsin mi? (etiket itilir, Release yayımlanır) [y/N] " ans </dev/tty || ans=""
@@ -107,11 +108,11 @@ done
 
 # 6) indeks: Release doğrulandıktan sonra (indeks hatası Release'i geçersiz kılmaz)
 INDEX_OK=1
-if ! "$INDEX_PUBLISH" "$ID" "$VERSION" "$REPO" --archive "$ARCHIVE" --sig "$ARCHIVE.sig"; then
+if ! "$INDEX_PUBLISH" "$ID" "$VERSION" "$REPO" --archive "$ARCHIVE" --sig "$ARCHIVE.sig" --yes; then
     INDEX_OK=0
     echo "" >&2
     echo "UYARI: Release yayımlandı ama indeks güncellenemedi. Release geçerlidir; index-publish.sh tek başına yeniden çalıştırılabilir:" >&2
-    echo "  $INDEX_PUBLISH $ID $VERSION $REPO --archive $ARCHIVE --sig $ARCHIVE.sig" >&2
+    echo "  $INDEX_PUBLISH $ID $VERSION $REPO --archive $ARCHIVE --sig $ARCHIVE.sig --yes" >&2
 fi
 echo ""
 if [ "$INDEX_OK" = 1 ]; then
