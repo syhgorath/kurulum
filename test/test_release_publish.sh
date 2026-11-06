@@ -31,6 +31,16 @@ GH
 chmod +x "$BIN/gh"
 # CI ortaminda global git kimligi yoktur: etiket (annotated) ve commit icin test kimligi
 export GIT_AUTHOR_NAME=t GIT_AUTHOR_EMAIL=t@t GIT_COMMITTER_NAME=t GIT_COMMITTER_EMAIL=t@t
+# Sahte indeks betigi: cagrisini index.log'a yazar; FAKE_INDEX_FAIL=1 ise basarisiz olur
+IDX="$TMP/idx"; mkdir -p "$IDX/scripts"
+cat > "$IDX/scripts/index-publish.sh" <<'IX'
+#!/usr/bin/env bash
+echo "index-publish $*" >> "$FAKE_INDEX_LOG"
+[ "${FAKE_INDEX_FAIL:-0}" = 1 ] && { echo "indeks hatasi (sahte)" >&2; exit 1; }
+exit 0
+IX
+chmod +x "$IDX/scripts/index-publish.sh"
+export SSHPOCKET_INDEX_DIR="$IDX" FAKE_INDEX_LOG="$TMP/index.log"
 export FAKE_GH_LOG="$TMP/gh.log" FAKE_GH_CREATE="$TMP/gh.create" FAKE_GH_NOTES="$TMP/gh.notes"
 
 fresh() { # temiz depo + yerel bare origin (main, takip ediyor)
@@ -49,6 +59,8 @@ fresh; out=$(pub --dry-run); rc=$?
 expect_eq "dry-run cikis 0" "0" "$rc"
 expect_contains "  plan: etiket" "$out" "git tag -a v$V"
 expect_contains "  plan: gh release create" "$out" "gh release create v$V"
+expect_contains "  plan: 6) indeks" "$out" "6) indeks"
+if [ -f "$TMP/index.log" ]; then bad "dry-run indeks betigini CAGIRDI"; else ok "dry-run indeks betigini cagirmadi"; fi
 expect_contains "  [dry-run] hicbir sey yapilmadi" "$out" "[dry-run] hiçbir şey yapılmadı"
 if (cd "$TMP/r" && git rev-parse -q --verify "refs/tags/v$V" >/dev/null); then bad "dry-run etiket OLUSTURDU"; else ok "dry-run etiket olusturmadi"; fi
 if git --git-dir="$TMP/o.git" rev-parse -q --verify "refs/tags/v$V" >/dev/null; then bad "dry-run etiketi ITTI"; else ok "dry-run etiketi itmedi"; fi
@@ -56,6 +68,7 @@ if [ -f "$TMP/gh.create" ]; then bad "dry-run Release ACTI"; else ok "dry-run Re
 if [ -d "$TMP/r/dist" ]; then bad "dry-run paket URETTI"; else ok "dry-run paket uretmedi"; fi
 
 echo "-- reddedilmesi gerekenler"
+fresh; SSHPOCKET_INDEX_DIR="$TMP/yok" expect_fail "indeks betigi yok (etiketten once)" "$(SSHPOCKET_INDEX_DIR="$TMP/yok" pub --dry-run)"
 fresh; echo "kirli" >> "$TMP/r/README.md"; expect_fail "temiz olmayan calisma agaci" "$(pub --dry-run)"
 fresh; (cd "$TMP/r" && git checkout -q -b baska); expect_fail "main disinda bir dal" "$(pub --dry-run)"
 fresh; (cd "$TMP/r" && echo x > x.txt && git add -A && git -c user.email=t@t -c user.name=t commit -qm yerel); expect_fail "HEAD origin/main ile ayni degil" "$(pub --dry-run)"
@@ -86,10 +99,19 @@ expect_not_contains "  Release notlari bir sonraki surum basligini icermez" "$no
 expect_contains "  ozet dogrulandi mesaji" "$out" "yüklenen dosyaların özeti yerelle aynı"
 expect_contains "  components.lock bilgisi: SHA-256" "$out" "SHA-256"
 expect_contains "  components.lock bilgisi: imzalayici satiri" "$out" 'namespaces="sshpocket-component"'
+expect_contains "  indeks: ID, surum, depo, arsiv ve imza iletildi" "$(cat "$TMP/index.log" 2>/dev/null)" "kurulum $V sahip/depo --archive dist/kurulum-$V.tar.gz --sig dist/kurulum-$V.tar.gz.sig"
+expect_contains "  indeks guncellendi mesaji" "$out" "indeks güncellendi"
+expect_not_contains "  lock PR'i artik gerekmez notu" "$out" "SİZ güncelleyin"
 expect_not_contains "  sshpocket reposuna dokunmaz (components.lock yazilmaz)" "$out" "components.lock'a yazıldı"
 echo "-- ozet UYUSMAZSA durur"
 fresh; export FAKE_DIGEST=kotu; out=$(pub --yes); rc=$?; unset FAKE_DIGEST
 if [ "$rc" != "0" ] && printf '%s' "$out" | grep -q "özeti uyuşmuyor"; then ok "uyusmayan ozet reddedildi"; else bad "uyusmayan ozet KABUL EDILDI (rc=$rc): $out"; fi
+echo "-- indeks BASARISIZSA: Release gecerli kalir, cikis 1, yeniden calistirma komutu yazilir"
+fresh; rm -f "$TMP/index.log"; export FAKE_INDEX_FAIL=1; out=$(pub --yes); rc=$?; unset FAKE_INDEX_FAIL
+expect_eq "indeks hatasi cikis 1" "1" "$rc"
+expect_contains "  Release yine de yayimlandi" "$(cat "$TMP/gh.create" 2>/dev/null)" "--verify-tag"
+expect_contains "  tek basina yeniden calistirilabilir" "$out" "tek başına yeniden çalıştırılabilir"
+expect_contains "  SHA-256 yine yazilir" "$out" "SHA-256"
 echo "-- onay sorulmadan (--yes olmadan, stdin yok) iptal"
 fresh; out=$(pub </dev/null); rc=$?
 if [ "$rc" != "0" ]; then ok "onay yok -> iptal"; else bad "onaysiz devam etti"; fi
