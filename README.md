@@ -84,4 +84,4 @@ test/run-all.sh
 LAB_CA_FILE=<gerekirse kök sertifika.pem> bats test/e2e/lab-docker.bats test/e2e/lab-native.bats test/e2e/lab-preview.bats test/e2e/lab-apt.bats   # Colima/Docker gerekir
 ```
 LAB notu: iç içe Docker için `/var/lib/docker` ve `/var/lib/containerd` ayrı volume'dür (yalnızca LAB; gerçek VM'de gerekmez). Ağda TLS'i araya giren bir güvenlik yazılımı varsa kök sertifikası yalnızca LAB konteynerine eklenir (`LAB_CA_FILE`); doğrulama kapatılmaz, paket buna bağımlı değildir.
-Yayın: `scripts/release.sh` / `release-publish.sh` (imza anahtarı ve yayın **kullanıcıdadır**). Kilit PR'ı: `scripts/lock-component.sh kurulum <sürüm> --repo syhgorath/kurulum` (sshpocket oturumu).
+Yayın: `scripts/release.sh` / `release-publish.sh` (imza anahtarı ve yayın **kullanıcıdadır**). `release-publish.sh` Release doğrulandıktan sonra imzalı paket indeksini (`syhgorath/sshpocket-index`, `SSHPOCKET_INDEX_DIR`) günceller; normal sürümde `components.lock` PR'ı **gerekmez**. İndeks hatası Release'i geçersiz kılmaz: `index-publish.sh` tek başına yeniden çalıştırılabilir. İndeks deposunda yalnızca yerel commit oluşur, push kullanıcıdadır.

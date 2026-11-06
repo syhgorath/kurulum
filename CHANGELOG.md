@@ -4,6 +4,9 @@ Biçim [Keep a Changelog](https://keepachangelog.com/) esas alınmıştır.
 
 ## [Unreleased]
 
+### Değişti
+- `scripts/release-publish.sh`: Release ve özet doğrulamasından sonra imzalı paket indeksini günceller (`SSHPOCKET_INDEX_DIR/scripts/index-publish.sh`, `--dry-run` listesinde 6. adım); indeks hatası yayımlanmış Release'i geçersiz kılmaz, betik tek başına yeniden çalıştırılabilir. Normal sürümde `components.lock` PR'ı gerekmez. Yayın betiği değişikliği; paket sürümü değişmez. `index-publish.sh` henüz yok: testler sahte betikle yapıldı, gerçek betikle **denenmedi**.
+
 ## [0.1.0] - 2026-11-06
 
 İlk sürüm. Yalnızca **Ubuntu 26.04** supported; Debian 13 planned (denenmedi). **Dürüst not:** sürüm, gerçek VM turu tamamlanmadan çıkarıldı (karar kullanıcıda). V01–V05 düzeltmeleri (native Redis preview, kaldır sonrası ortak .env, apt indeks toparlama, saat sapması uyarısı, nginx healthcheck) gerçek VM'de **doğrulanmadı**, yalnızca LAB'da sınandı; hardening'li iki sıralı VM turu, Debian 13 ve amd64 LAB dışı yollar da denenmedi (aşağıda "Denenmedi").
