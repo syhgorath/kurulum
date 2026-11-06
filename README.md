@@ -2,7 +2,7 @@
 
 [sshpocket](https://github.com/syhgorath/sshpocket) paketi: sunucuya **Docker taban kurulumu, nginx, MariaDB ve Redis** kurar (her biri **native** ya da **Docker** modunda), önizleyerek, sürümü sabitleyerek ve **veriyi silmeden**. Menüdeki adı **"Kurulum merkezi"**dir (paket kimliği `kurulum`).
 
-> **Durum: v0.1.0 (yayın öncesi).** Aşağıdaki "Neyin denendiği" tablosu gerçeği söyler: LAB (Ubuntu 26.04 arm64 konteyner) testleri tamam; **gerçek VM turu (Ubuntu 26.04 amd64) büyük ölçüde yapıldı**, hardening'li iki sıralı tur bekliyor ve yayın için tamamlanması şarttır ([docs/vm-turu.md](docs/vm-turu.md)). Debian 13 henüz hiçbir ortamda denenmedi.
+> **Durum: v0.1.0 (Ubuntu 26.04).** Aşağıdaki "Neyin denendiği" tablosu gerçeği söyler: LAB (Ubuntu 26.04 arm64 konteyner) testleri tamam; **gerçek VM turu (Ubuntu 26.04 amd64) kısmen yapıldı**; V01–V05 düzeltmeleri ve hardening'li iki sıralı tur gerçek VM'de **doğrulanmadı** (sürüm bu haliyle bilinçli çıkarıldı) ([docs/vm-turu.md](docs/vm-turu.md)). Debian 13 henüz hiçbir ortamda denenmedi.
 
 ## Profiller
 | Profil | Durum | Not |

@@ -1,6 +1,8 @@
 # Gerçek VM turu (kullanıcı yapar)
 
-> Bu tur henüz **yapılmadı**. Her satırı sonuç günlüğüne yazın (`yazılım | mod | platform | durum | not`); denenmeyen satırı "denendi" yazmayın. **Yayın için bu turun (ve yükseltme testinin) geçmesi şarttır.**
+> **Durum (v0.1.0):** Bu tur tam tamamlanmadan v0.1.0 çıkarıldı. Gerçek VM'de **doğrulanmayanlar:** V01 (native Redis preview), V02 (kaldır sonrası ortak .env), V04 (apt indeks toparlama), V05 (saat sapması uyarısı), nginx healthcheck, hardening'li iki sıralı tur, native Redis'te yeni parola üretimi, Debian 13. Bunlar yalnızca LAB'da sınandı. Bu turu yapınca sonuçları CHANGELOG'a işleyin.
+
+> Bu tur v0.1.0 için yalnızca **kısmen yapıldı** (üstteki nota bakın). Her satırı sonuç günlüğüne yazın (`yazılım | mod | platform | durum | not`); denenmeyen satırı "denendi" yazmayın. **Yayın için bu turun (ve yükseltme testinin) geçmesi şarttır.**
 > Önce her VM'de **snapshot alın**. Komutlar sshpocket menüsü yerine doğrudan playbook ile çalışır (menü turu kilit PR'ından sonradır; onay/ön koşul kapıları o zaman devreye girer).
 
 ## Hazırlık
@@ -46,7 +48,7 @@ ssh -t KULLANICI@IP "sudo sh -c 'pw=\$(grep ^MARIADB_ROOT_PASSWORD= /srv/homelab
 ```
 `eslesen_satir=0` beklenir (parola bulunamamalı).
 
-## Yükseltme testi (kabul ölçütü: geçmeden yayın yok)
+## Yükseltme testi (kabul ölçütü; v0.1.0 bu madde VM'de tekrarlanmadan çıkarıldı: V01–V05 sonrası yükseltme VM'de yeniden denenmedi)
 1. Eski sürümü kur: `-e kurulum_yazilim=mariadb -e kurulum_mod=docker -e kurulum_mariadb_surum=10.11.19`.
 2. Veri yaz (sunucuda): `sudo docker exec kurulum-mariadb sh -c 'mariadb -uroot -p"$MARIADB_ROOT_PASSWORD" -e "CREATE DATABASE t; CREATE TABLE t.k(a int); INSERT INTO t.k VALUES (42)"'`.
 3. Yeni sürüme yükselt: `$AP playbooks/yukselt.yml -e kurulum_yazilim=mariadb -e kurulum_mod=docker -e kurulum_mariadb_surum=11.4.13`.

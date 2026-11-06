@@ -4,9 +4,9 @@ Biçim [Keep a Changelog](https://keepachangelog.com/) esas alınmıştır.
 
 ## [Unreleased]
 
-## [0.1.0] - yayın öncesi (VM turu bekliyor)
+## [0.1.0] - 2026-11-06
 
-İlk sürüm adayı. **Yayınlanmadı**; gerçek VM turu ve VM'de yükseltme testi geçmeden yayınlanmaz.
+İlk sürüm. Yalnızca **Ubuntu 26.04** supported; Debian 13 planned (denenmedi). **Dürüst not:** sürüm, gerçek VM turu tamamlanmadan çıkarıldı (karar kullanıcıda). V01–V05 düzeltmeleri (native Redis preview, kaldır sonrası ortak .env, apt indeks toparlama, saat sapması uyarısı, nginx healthcheck) gerçek VM'de **doğrulanmadı**, yalnızca LAB'da sınandı; hardening'li iki sıralı VM turu, Debian 13 ve amd64 LAB dışı yollar da denenmedi (aşağıda "Denenmedi").
 
 ### Eklendi
 - Eylemler: `durum` (salt okunur), `preview` (`--check --diff`), `kur` (`yes-no`, `preview` ön koşul), `yukselt` (`type-server-name`, `preview` ön koşul), `kaldir` (`yes-no`).
@@ -17,7 +17,7 @@ Biçim [Keep a Changelog](https://keepachangelog.com/) esas alınmıştır.
 - Port çakışması denetimi (`ss` + işaret dosyası, boş port önerisi), tek mod kuralı, yönetilmeyen paket koruması, sunucuda `flock` ile eşzamanlı koşu kilidi.
 - Yükseltme: döküm/yedek (0700/0600) sonra yeni imaj; geri düşürme reddedilir. Kaldır: veri, `.env` ve compose.yml kalır; `apt purge` ve `compose down -v` yok (statik testle denetlenir).
 - `kurulum_dis_erisim=true`: ufw'ye yazılmaz, `hardening_ufw_extra_allow_host` önerisi gösterilir.
-- Profiller: `ubuntu-26.04` supported (LAB'da denendi; VM turu bekliyor), `debian-13` planned (denenmedi).
+- Profiller: `ubuntu-26.04` supported (LAB + kısmi gerçek VM turu; hardening'li tur denenmedi), `debian-13` planned (denenmedi).
 - Release araçları utility'den alındı; LAB e2e (`test/e2e/lab-docker.bats`, `lab-native.bats`), statik denetim, tutarlılık betiği.
 
 ### Denendi
