@@ -45,6 +45,8 @@ Küratörlü sürümler (artan; paket sürümüyle gelir): nginx `1.30.6`, `1.31
 - **Gizli değerler:** `<ana>/<yazılım>/.env` (0600); parola **sunucuda** `/dev/urandom`'dan, yalnızca yoksa üretilir; `no_log`. `<ana>/.env` yalnızca gizli olmayan bağlantı anahtarlarını taşır (`NGINX_HOST`, `MARIADB_PORT`, `REDIS_HOST_PORT` …): native `127.0.0.1`, docker servis adı.
 - **Native:** nginx (kendi sitesi `sites-available/kurulum`, dağıtım varsayılan **bağı** devre dışı, dosya silinmez), MariaDB (`99-kurulum.cnf`: bind/port; root `unix_socket`, parola yok), Redis (`redis.conf` satırları yedekli; parola `requirepass`). Veri dağıtım yerinde (`/var/lib/mysql`, `/var/lib/redis`, `/var/www/html`). Zaten kurulu ama kayıtsız paket varsa **durur**. Paketin kurulum betiği servisi varsayılan portta (80/3306/6379) kısaca başlatır; o port doluysa kurulum başlamadan durur.
 - **Port çakışması:** `ss` + işaret dosyası; "3306 portu mariadb uygulamasına verilmiş, boş port önerisi: 3307".
+- **Yeniden çalıştırmada toparlanma:** paket indeksi bayat/boşsa (`apt-cache policy` adayı yok) `kur` indeksi yeniler; yarım kalan koşudan sonra `kur`'u tekrar çalıştırmak yeterlidir.
+- **Saat sapması:** sunucu saati kontrol makinesinden 1 saatten fazla farklıysa (`apt` "Release file ... is not valid yet" der) koşu başında net bir UYARI ve çözüm önerisi çıkar; koşu durmaz.
 - **Eşzamanlılık:** sunucuda `/run/kurulum.lock` üzerinde `flock`; ikinci koşu durur. Tutucu süreç en geç 30 dk sonra kendiliğinden düşer.
 
 ## Native ve Docker modu: farklar (gerçek VM'de görüldü)
@@ -66,9 +68,10 @@ Ayrıntı sonuçlar CHANGELOG'dadır. Özet:
 | Ne | Sonuç |
 |---|---|
 | `component_validate.py . --strict --unsigned` (`git archive` arşivi) | temiz |
-| LAB (Colima + systemd'li `ubuntu:26.04` arm64 konteyneri, iç içe Docker): `lab-docker.bats` / `lab-native.bats` / `lab-preview.bats` | 21/21, 11/11 ve 8/8: idempotans, yükseltmede veri duruyor, kaldır veriyi bırakır, parola sızmıyor (ayrıntı CHANGELOG) |
+| LAB (Colima + systemd'li `ubuntu:26.04` arm64 konteyneri, iç içe Docker): `lab-docker.bats` / `lab-native.bats` / `lab-preview.bats` / `lab-apt.bats` | 21/21, 11/11, 8/8 ve 7/7: idempotans, yükseltmede veri duruyor, kaldır veriyi bırakır, parola sızmıyor (ayrıntı CHANGELOG) |
 | `test/run-all.sh` (statik desen denetimi, release betikleri, tutarlılık) | yeşil |
 | **Gerçek VM** ubuntutest (Ubuntu 26.04 **amd64**, hardening'siz, doğrudan playbook) | ✅ Docker taban (kur, ikinci kur changed=0); docker modu nginx/MariaDB/Redis kur + ikinci kur changed=0, parola sızıntısı 0 eşleşme, **yükseltme** (MariaDB 10.11.19→11.4.13 veri duruyor, Redis 7.2.17→7.4.12 anahtar duruyor, nginx 1.30.6→1.31.8), **kaldır** (veri/.env/compose kalır; Redis yeniden kur veri ve parolayı korudu); **native** nginx/MariaDB/Redis kur + ikinci kur changed=0. Ayrıntı CHANGELOG |
+| Gerçek VM: V04 (indeks toparlama) ve V05 (saat sapması uyarısı) düzeltmeleri — LAB'da sınandı (faketime), VM'de **denenmedi** | **denenmedi** |
 | Gerçek VM: hardening'li iki sıralı tur, native Redis'te yeni parola üretimi, düzeltilmiş native Redis `preview`, sshpocket menüsü | **denenmedi** |
 | Debian 13 (konteyner dahil); `kurulum_docker_kaynak=dagitim` | **denenmedi** (yalnızca Debian deposunun varlığı `apt -s` ile görüldü). Profil `planned` kalır; v0.1.0 yalnızca Ubuntu 26.04 içindir |
 | amd64 (LAB arm64) | **denenmedi** |
@@ -78,7 +81,7 @@ Ayrıntı sonuçlar CHANGELOG'dadır. Özet:
 python3.13 -m venv .venv && .venv/bin/pip install --require-hashes --only-binary :all: -r requirements.txt
 python3 -I tools/validate/component_validate.py . --strict --unsigned
 test/run-all.sh
-LAB_CA_FILE=<gerekirse kök sertifika.pem> bats test/e2e/lab-docker.bats test/e2e/lab-native.bats test/e2e/lab-preview.bats   # Colima/Docker gerekir
+LAB_CA_FILE=<gerekirse kök sertifika.pem> bats test/e2e/lab-docker.bats test/e2e/lab-native.bats test/e2e/lab-preview.bats test/e2e/lab-apt.bats   # Colima/Docker gerekir
 ```
 LAB notu: iç içe Docker için `/var/lib/docker` ve `/var/lib/containerd` ayrı volume'dür (yalnızca LAB; gerçek VM'de gerekmez). Ağda TLS'i araya giren bir güvenlik yazılımı varsa kök sertifikası yalnızca LAB konteynerine eklenir (`LAB_CA_FILE`); doğrulama kapatılmaz, paket buna bağımlı değildir.
 Yayın: `scripts/release.sh` / `release-publish.sh` (imza anahtarı ve yayın **kullanıcıdadır**). Kilit PR'ı: `scripts/lock-component.sh kurulum <sürüm> --repo syhgorath/kurulum` (sshpocket oturumu).

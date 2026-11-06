@@ -62,16 +62,32 @@
       when: kd_docker_depo is changed or kd_docker_anahtar is changed
       register: kd_docker_indeks
 
+    # Depo zaten ekli ama indeks bayat/boşsa (önceki koşu `update`te düştü, saat sapması, silinmiş liste): aday yoksa güncelle (V04)
+    - name: Refresh the index when docker-ce has no candidate
+      ansible.builtin.include_tasks: "{{ playbook_dir }}/../roles/ortak/tasks/apt_aday.yml"
+      vars:
+        k_apt_paketler: [docker-ce]
+
     - name: Install Docker Engine and Compose plugin
       ansible.builtin.apt:
         name: [docker-ce, docker-ce-cli, containerd.io, docker-buildx-plugin, docker-compose-plugin]
         state: present
       register: kd_docker_paket
       # --check'te depo henüz yazılmadığından paket bulunamaz; önizleme "depo + paketler kurulacak" der
-      when: not (ansible_check_mode and (kd_docker_depo is changed or kd_docker_anahtar is changed))
+      when: >-
+        not (ansible_check_mode and (kd_docker_depo is changed or kd_docker_anahtar is changed
+        or kurulum_apt_aday.stdout | trim != ''))
+
+- name: Refresh the index when docker.io has no candidate
+  ansible.builtin.include_tasks: "{{ playbook_dir }}/../roles/ortak/tasks/apt_aday.yml"
+  vars:
+    k_apt_paketler: [docker.io]
+  when: kurulum_docker_durum == 'yok' and kurulum_docker_kaynak == 'dagitim'
 
 - name: Install Docker (distribution package)
-  when: kurulum_docker_durum == 'yok' and kurulum_docker_kaynak == 'dagitim'
+  when: >-
+    kurulum_docker_durum == 'yok' and kurulum_docker_kaynak == 'dagitim'
+    and not (ansible_check_mode and k_apt_bayat | default(false))
   ansible.builtin.apt:
     name: "{{ ['docker.io', 'docker-compose-v2'] if ansible_facts['distribution'] == 'Ubuntu' else ['docker.io', 'docker-compose'] }}"
     state: present

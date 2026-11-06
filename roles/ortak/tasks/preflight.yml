@@ -15,6 +15,22 @@
       Proxmox VE ve Raspberry Pi kapsam dışıdır.
     quiet: true
 
+# Saat sapması (V05): sunucu saati kontrol makinesinden çok farklıysa apt depoları "Release file ... is not valid yet" ile reddedilir, TLS ve imaj çekme bozulur.
+# Salt okunur, --check'te de çalışır; koşuyu DURDURMAZ, apt'ye gitmeden önce net uyarı verir. Kontrol makinesi saati kontrol makinesinde okunur (lookup).
+- name: Compare the server clock with the control machine clock
+  ansible.builtin.set_fact:
+    k_saat_kontrol: "{{ lookup('pipe', 'date +%s') | int }}"
+    k_saat_fark: "{{ (ansible_facts['date_time']['epoch'] | int) - (lookup('pipe', 'date +%s') | int) }}"
+
+- name: Warn about clock skew
+  ansible.builtin.debug:
+    msg: >-
+      kurulum: UYARI sunucu saati kontrol makinesinden {{ k_saat_fark | int | abs }} sn ({{ (k_saat_fark | int | abs / 3600) | round(1) }} saat)
+      {{ 'GERİDE' if k_saat_fark | int < 0 else 'İLERİDE' }}. apt depoları "Release file ... is not valid yet" diye reddedebilir; TLS ve imaj çekme de bozulabilir.
+      Koşu devam ediyor, hiçbir şey yazılmadı. Çözüm: sunucuda saati eşitleyin (sudo date -u -s @{{ k_saat_kontrol }} ya da sudo chronyc makestep);
+      utility paketi NTP'yi (chrony) yönetir.
+  when: (k_saat_fark | int | abs) > (kurulum_saat_esigi_sn | int)
+
 - name: Detect Proxmox VE
   ansible.builtin.stat:
     path: "{{ item }}"

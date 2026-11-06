@@ -32,12 +32,18 @@
           kurulum: nginx paketi kurulurken servisi 80 portunda başlatmaya çalışır; 80 şu an dolu (ss). Önce 80'i kullanan süreci durdurun
           ya da docker modunu kullanın. Hiçbir şey kurulmadı.
         quiet: true
+    - name: Refresh the index when nginx has no candidate
+      ansible.builtin.include_tasks: "{{ playbook_dir }}/../roles/ortak/tasks/apt_aday.yml"
+      vars:
+        k_apt_paketler: [nginx]
     - name: Install nginx
       ansible.builtin.apt:
         name: nginx
         state: present
         update_cache: true
         cache_valid_time: 3600
+      # --check'te indeks bayatsa paket aranamaz (indeks gerçekten yenilenmedi); önizleme "kurulacak" der
+      when: not (ansible_check_mode and k_apt_bayat | default(false))
       register: kd_nginx_paket
     - name: Managed site
       ansible.builtin.template:

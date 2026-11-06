@@ -3,7 +3,7 @@
 - name: kurulum durum (salt okunur)
   hosts: kurulum
   gather_facts: true
-  gather_subset: [min]
+  gather_subset: [min, date_time]
   become: true
   vars_files:
     - ../roles/ortak/defaults/main.yml
