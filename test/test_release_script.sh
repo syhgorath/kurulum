@@ -8,6 +8,7 @@ command -v git >/dev/null || { bad "git yok"; finish; }
 KEY="$TMP/anahtar"
 ssh-keygen -q -t ed25519 -N "" -C "test-tek-kullanimlik" -f "$KEY"
 V=$(tr -d '[:space:]' < "$ROOT/VERSION")
+ID=$(python3 -I -c 'import json,sys; print(json.load(open(sys.argv[1]))["id"])' "$ROOT/component.json")
 
 # Calisma agacinin kopyasi (scripts/ git archive'a girmedigi icin tar ile kopyalanir) + gecici git deposu
 fresh() {
@@ -25,37 +26,37 @@ echo "-- basarili sunum"
 fresh
 out=$(rel); rc=$?
 expect_eq "release.sh basarili (cikis 0)" "0" "$rc"
-expect_contains "  paket olustu" "$out" "kurulum-$V.tar.gz"
-if [ -f "$TMP/r/dist/kurulum-$V.tar.gz" ]; then ok "dist/ paket var"; else bad "dist/ paket yok"; fi
-if [ -f "$TMP/r/dist/kurulum-$V.tar.gz.sig" ]; then ok "dist/ imza var"; else bad "dist/ imza yok"; fi
+expect_contains "  paket olustu" "$out" "$ID-$V.tar.gz"
+if [ -f "$TMP/r/dist/$ID-$V.tar.gz" ]; then ok "dist/ paket var"; else bad "dist/ paket yok"; fi
+if [ -f "$TMP/r/dist/$ID-$V.tar.gz.sig" ]; then ok "dist/ imza var"; else bad "dist/ imza yok"; fi
 expect_contains "  signers satiri yazdirildi" "$out" 'namespaces="sshpocket-component"'
 
 echo "-- bagimsiz dogrulama (script'in kendi dogrulamasindan bagimsiz)"
 PUB=$(ssh-keygen -y -f "$KEY" | cut -d' ' -f1,2)
 echo "sshpocket-component namespaces=\"sshpocket-component\" $PUB" > "$TMP/signers_ok"
 ssh-keygen -Y verify -f "$TMP/signers_ok" -I sshpocket-component -n sshpocket-component \
-  -s "$TMP/r/dist/kurulum-$V.tar.gz.sig" < "$TMP/r/dist/kurulum-$V.tar.gz" >/dev/null 2>&1
+  -s "$TMP/r/dist/$ID-$V.tar.gz.sig" < "$TMP/r/dist/$ID-$V.tar.gz" >/dev/null 2>&1
 expect_eq "dogru principal+ad alani: dogrulanir" "0" "$?"
 ssh-keygen -Y verify -f "$TMP/signers_ok" -I baska-principal -n sshpocket-component \
-  -s "$TMP/r/dist/kurulum-$V.tar.gz.sig" < "$TMP/r/dist/kurulum-$V.tar.gz" >/dev/null 2>&1
+  -s "$TMP/r/dist/$ID-$V.tar.gz.sig" < "$TMP/r/dist/$ID-$V.tar.gz" >/dev/null 2>&1
 expect_eq "yanlis principal (-I): DOGRULANMAZ" "255" "$?"
 ssh-keygen -Y verify -f "$TMP/signers_ok" -I sshpocket-component -n sshpocket-release \
-  -s "$TMP/r/dist/kurulum-$V.tar.gz.sig" < "$TMP/r/dist/kurulum-$V.tar.gz" >/dev/null 2>&1
+  -s "$TMP/r/dist/$ID-$V.tar.gz.sig" < "$TMP/r/dist/$ID-$V.tar.gz" >/dev/null 2>&1
 expect_eq "yanlis ad alani (-n): DOGRULANMAZ" "255" "$?"
 # paket bozulursa imza gecmemeli
-cp "$TMP/r/dist/kurulum-$V.tar.gz" "$TMP/bozuk.tar.gz"; printf 'x' >> "$TMP/bozuk.tar.gz"
+cp "$TMP/r/dist/$ID-$V.tar.gz" "$TMP/bozuk.tar.gz"; printf 'x' >> "$TMP/bozuk.tar.gz"
 ssh-keygen -Y verify -f "$TMP/signers_ok" -I sshpocket-component -n sshpocket-component \
-  -s "$TMP/r/dist/kurulum-$V.tar.gz.sig" < "$TMP/bozuk.tar.gz" >/dev/null 2>&1
+  -s "$TMP/r/dist/$ID-$V.tar.gz.sig" < "$TMP/bozuk.tar.gz" >/dev/null 2>&1
 expect_eq "bozulmus paket: DOGRULANMAZ" "255" "$?"
 
 echo "-- paket icerigi"
-list=$(tar -tzf "$TMP/r/dist/kurulum-$V.tar.gz")
-expect_eq "tek kok dizin" "kurulum-$V" "$(printf '%s\n' "$list" | cut -d/ -f1 | sort -u)"
-expect_contains "  component.json var" "$list" "kurulum-$V/component.json"
-cj=$(tar -xzOf "$TMP/r/dist/kurulum-$V.tar.gz" "kurulum-$V/component.json" | python3 -I -c 'import json,sys; d=json.load(sys.stdin); print(d["id"], d["version"], d["runner"])')
-expect_eq "  component.json id/version/runner" "kurulum $V ansible" "$cj"
-expect_not_contains "  scripts/ yok" "$list" "kurulum-$V/scripts/"
-expect_not_contains "  test/ yok" "$list" "kurulum-$V/test/"
+list=$(tar -tzf "$TMP/r/dist/$ID-$V.tar.gz")
+expect_eq "tek kok dizin" "$ID-$V" "$(printf '%s\n' "$list" | cut -d/ -f1 | sort -u)"
+expect_contains "  component.json var" "$list" "$ID-$V/component.json"
+cj=$(tar -xzOf "$TMP/r/dist/$ID-$V.tar.gz" "$ID-$V/component.json" | python3 -I -c 'import json,sys; d=json.load(sys.stdin); print(d["id"], d["version"], d["runner"])')
+expect_eq "  component.json id/version/runner" "$ID $V ansible" "$cj"
+expect_not_contains "  scripts/ yok" "$list" "$ID-$V/scripts/"
+expect_not_contains "  test/ yok" "$list" "$ID-$V/test/"
 
 echo "-- reddedilmesi gerekenler"
 expect_fail() { # ad, cikti

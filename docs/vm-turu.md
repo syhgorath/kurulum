@@ -10,10 +10,10 @@
 - Sunucular: `ubuntutest` (Ubuntu 26.04; IP DHCP ile gezer, `server.env`'e bakın) ve **düz Debian 13 VM** (`debiantest`). Üçüncü olarak linux-hardening'li bir VM (aşağıda "Hardening turları").
 - Envanter (IP/kullanıcıyı kendinize göre yazın; gizli değer yok):
 ```bash
-printf 'kurulum:\n  hosts:\n    vm:\n      ansible_host: 192.168.1.183\n      ansible_user: KULLANICI\n' > /tmp/kurulum-inv.yml
+printf 'utility:\n  hosts:\n    vm:\n      ansible_host: 192.168.1.183\n      ansible_user: KULLANICI\n' > /tmp/kurulum-inv.yml
 ```
 - ssh anahtarınız parolalıysa önce `ssh-add` (Ansible parola soramaz). Komutlardaki `-e ansible_become_exe=/usr/bin/sudo.ws` **yalnızca Ubuntu 26.04** içindir; Debian 13'te kaldırın.
-- **`durum` da sudo ister** (işaret dosyası root'a ait, 0640; ana klasör 0750): `--ask-become-pass` olmadan "sudo: interactive authentication is required" ile düşer. Bu yüzden `$AP` HER playbook'ta (durum dahil) `--ask-become-pass` taşır.
+- **`kurulum_durum` sudo ister** (`durum` ve `ntp_durum` sudo istemez) (işaret dosyası root'a ait, 0640; ana klasör 0750): `--ask-become-pass` olmadan "sudo: interactive authentication is required" ile düşer. Bu yüzden `$AP` HER playbook'ta (durum dahil) `--ask-become-pass` taşır.
 - sunucuda `sudo` ssh ile çalışıyorsa `ssh -t` kullanın (sudo parola için terminal ister); `*` içeren yollar **yetkisiz kabukta** açılır ve ana klasör 0750 root olduğundan boş/"No such file" döner: glob'lu komutları `sudo sh -c '...'` içinde çalıştırın.
 - Aşağıdaki `$AP` kısaltması: `AP=".venv/bin/ansible-playbook -i /tmp/kurulum-inv.yml --ask-become-pass"` (Ubuntu için sonuna `-e ansible_become_exe=/usr/bin/sudo.ws` ekleyin).
 - Sunucuda gizli değer ÜRETİLİR ve ekrana yazılmaz; bu tur boyunca parolayı kopyalamayın. Bağlanmanız gerekirse sunucuda `sudo` ile `.env` dosyasından okunur.
@@ -23,8 +23,8 @@ Aşağıda `nginx`/`docker` örneği; `mariadb`, `redis` için `kurulum_yazilim`
 ```bash
 cd ~/Developer/kurulum
 AP=".venv/bin/ansible-playbook -i /tmp/kurulum-inv.yml --ask-become-pass"
-$AP playbooks/durum.yml
-$AP playbooks/preview.yml --check --diff -e kurulum_yazilim=docker
+$AP playbooks/kurulum_durum.yml
+$AP playbooks/kurulum_onizle.yml --check --diff -e kurulum_yazilim=docker
 ```
 Snapshot teyidinden sonra **önce Docker taban**, sonra uygulamalar:
 ```bash
@@ -38,7 +38,7 @@ ssh KULLANICI@IP 'ss -ltn | grep -E ":(8080|3306|6379) "; curl -sI http://127.0.
 ```
 İkinci önizleme/kur `changed=0` olmalı:
 ```bash
-$AP playbooks/preview.yml --check --diff -e kurulum_yazilim=nginx -e kurulum_mod=docker
+$AP playbooks/kurulum_onizle.yml --check --diff -e kurulum_yazilim=nginx -e kurulum_mod=docker
 $AP playbooks/kur.yml -e kurulum_yazilim=nginx -e kurulum_mod=docker
 ```
 Parola sızıntı kontrolü (kur çıktısını `$AP playbooks/kur.yml … | tee /tmp/kur-mariadb.log` ile kaydedin; parolayı komut satırına yazmadan, SUNUCUDA sayılır). `ssh -t` ile stdin yönlendirmesi çalışmaz (sudo terminal ister), bu yüzden günlük önce kopyalanır:

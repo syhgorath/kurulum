@@ -10,6 +10,27 @@ Biçim [Keep a Changelog](https://keepachangelog.com/) esas alınmıştır.
 ### Değişti
 - `scripts/release-publish.sh`: Release ve özet doğrulamasından sonra imzalı paket indeksini günceller (`SSHPOCKET_INDEX_DIR/scripts/index-publish.sh`, `--dry-run` listesinde 6. adım); indeks hatası yayımlanmış Release'i geçersiz kılmaz, betik tek başına yeniden çalıştırılabilir. Normal sürümde `components.lock` PR'ı gerekmez. Yayın betiği değişikliği; paket sürümü değişmez. `index-publish.sh` henüz yok: testler sahte betikle yapıldı, gerçek betikle **denenmedi**.
 
+## [0.2.0] - yayın öncesi
+
+Birleştirme sürümü: eski `utility` paketi (saat dilimi, LANG, NTP; v0.1.0–v0.1.2, geçmişi [docs/utility-gecmis.md](docs/utility-gecmis.md)) bu pakete taşındı ve paket kimliği **`utility`** oldu (repo adı henüz `kurulum`). **Yayınlanmadı**; etiket, Release ve imza kullanıcıdadır.
+
+### Değişti (UYUMSUZ: KeyLab/sshpocket tarafı uyarlanmalı)
+- Paket kimliği `kurulum` → `utility`; arşiv `utility-0.2.0.tar.gz`. Sonuç satırı önekleri `utility.*`: kurulum eylemlerinin çıktısı artık `SSHPOCKET_RESULT utility.kur …` (eskiden `kurulum.kur`). `inventory_group` `utility` (eskiden `kurulum`).
+- Kurulum eylemlerinden `durum` → **`kurulum_durum`**, `preview` → **`kurulum_onizle`** (adlar utility'nin `durum`/`preview` eylemleriyle çakıştığı için); `kur`/`yukselt`/`kaldir` ön koşulu `kurulum_onizle`. Playbooklar `playbooks/kurulum_durum.yml`, `playbooks/kurulum_onizle.yml`.
+- Profiller: `debian-13` **supported** (utility eylemleri Debian 13.7'de gerçek VM'de denendi); kurulum eylemleri Debian 13'te hâlâ planned (ön kontrol durur).
+- `ansible.cfg`: `deprecation_warnings = True` (kurulum'unki seçildi); CI ve testler iki paketin birleşimini kapsar.
+
+### Eklendi
+- `utility` eylemleri **aynen** taşındı: `durum`, `preview`, `apply`, `geri_yukle` (playbooklar, roller, `component.json` eylem nesneleri ve 7 değişken utility v0.1.2 ile bire bir aynı; `utility/durum` kimliği, anahtarları ve sırası korunur, bayt karşılaştırmasıyla ve `lab-utility.bats` testiyle sınandı).
+- **`ntp_durum`** (salt okunur, sudo yok): etkin zaman hizmetleri (`hizmetler=chrony+systemd-timesyncd`…), chrony/senkron/ofset/kaynak bilgisi, `yonetilen_kaynak`, `proxmox=evet|hayir`.
+- **`ntp_ayarla`** (`preview` ön koşul, `yes-no`): yalnızca NTP (+ saat adımlama); saat dilimi ve locale'a dokunmaz; yedek alır; Proxmox'ta `--check` dahil reddeder. `systemd-timesyncd` kapatılmaz.
+- Docs: [docs/saat-dil-ntp.md](docs/saat-dil-ntp.md) (eski utility README'si), [docs/vm-turu-utility.md](docs/vm-turu-utility.md), [docs/vm-turu-utility-ek.md](docs/vm-turu-utility-ek.md) (birleşik paket için VM turu eki).
+- Testler: `test/backup.bats`, `test/clock.bats` (utility birim testleri), `test/e2e/lab-utility.bats` (LAB, 33 test: 27 utility + durum anahtar sırası + 5 NTP eylemi), kendi LAB'ı `test/e2e/utility-lab/` (port 2224; kurulum LAB'ı `test/e2e/lab/` port 2225). Release testleri artık kimliği `component.json`'dan okur.
+
+### Denenmedi
+- Birleştirilmiş paketin **gerçek VM'de** çalışması (yalnızca LAB: Ubuntu 26.04 arm64 konteyner); `ntp_durum` ve `ntp_ayarla` gerçek VM'de; chrony ile `systemd-timesyncd`'nin Ubuntu 26.04'te birlikte etkin olduğu durum; sshpocket/KeyLab'ın yeni eylem adlarıyla ve `utility.*` önekiyle çağrılması; kurulum eylemlerinin Debian 13'te (planned).
+- Kurulum tarafının v0.1.0 "Denenmedi" listesi (V01–V05 gerçek VM, hardening'li tur, native Redis yeni parola, amd64 LAB dışı yollar vb.) aynen geçerli.
+
 ## [0.1.0] - 2026-11-06
 
 İlk sürüm. Yalnızca **Ubuntu 26.04** supported; Debian 13 planned (denenmedi). **Dürüst not:** sürüm, gerçek VM turu tamamlanmadan çıkarıldı (karar kullanıcıda). V01–V05 düzeltmeleri (native Redis preview, kaldır sonrası ortak .env, apt indeks toparlama, saat sapması uyarısı, nginx healthcheck) gerçek VM'de **doğrulanmadı**, yalnızca LAB'da sınandı; hardening'li iki sıralı VM turu, Debian 13 ve amd64 LAB dışı yollar da denenmedi (aşağıda "Denenmedi").
