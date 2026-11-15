@@ -42,7 +42,7 @@ for _ in $(seq 1 30); do nc -z 127.0.0.1 "$PORT" 2>/dev/null && break; sleep 1; 
 nc -z 127.0.0.1 "$PORT" 2>/dev/null || { echo "⚠️  sshd 127.0.0.1:$PORT üzerinde yanıt vermiyor"; exit 1; }
 { printf '[127.0.0.1]:%s ' "$PORT"; cut -d' ' -f1,2 "$STATE/hostkey/ssh_host_ed25519_key.pub"; } > "$STATE/kh"
 cat > "$STATE/inventory.yml" <<INV
-kurulum:
+utility:
   hosts:
     lab:
       ansible_host: 127.0.0.1
@@ -52,4 +52,4 @@ kurulum:
       ansible_ssh_common_args: "-o UserKnownHostsFile=$STATE/kh -o StrictHostKeyChecking=yes -o IdentitiesOnly=yes"
 INV
 echo "✅ Hazır: 127.0.0.1:${PORT}  kullanıcı=tester  ($BASE, systemd, parolasız sudo)"
-echo "   Çalıştır: test/e2e/lab/run.sh durum   |  Testler: bats test/e2e/lab.bats"
+echo "   Çalıştır: test/e2e/lab/run.sh kurulum_durum   |  Testler: bats test/e2e/lab-docker.bats"

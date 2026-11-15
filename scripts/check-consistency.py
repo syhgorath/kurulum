@@ -6,8 +6,9 @@ Hata varsa çıkış kodu 1. linux-hardening/scripts/check-consistency.py'nin ku
 
 Kurallar:
   - VERSION = component.json version; CHANGELOG.md'de '## [<sürüm>]' başlığı var.
-  - Profil eşlemesi: component.json'daki supported profiller roles/ortak/defaults'taki kurulum_supported_os ile,
-    planned profiller kurulum_planned_os ile BİREBİR aynı olmalı (Debian 13 planned iken supported listede olamaz).
+  - Profil eşlemesi: component.json'daki supported profiller roles/common/defaults'taki utility_supported_os ile,
+    planned profiller utility_planned_os ile BİREBİR aynı olmalı. Kurulum eylemlerinin kapsamı (roles/ortak: kurulum_supported_os,
+    kurulum_planned_os) manifestin supported+planned profillerinin altkümesi olmalıdır (Debian 13'te kurulum planned olabilir).
   - README.md her profil için bir satır içerir.
   - component.json'daki her değişken, bir rolün defaults'ında tanımlıdır ve türü/varsayılanı uyuşur.
   - Her eylemin sonuç anahtarları, playbook'taki SSHPOCKET_RESULT satırında yazılır.
@@ -37,13 +38,14 @@ if not re.search(rf"^## \[{re.escape(version)}\]", read("CHANGELOG.md"), re.M):
     err(f"CHANGELOG.md içinde '## [{version}]' başlığı yok")
 
 # profiller <-> rol varsayılanları (yalnızca "anahtar: { Dagitim: ["x"] }" tek satırlık biçim)
-defaults = read("roles/ortak/defaults/main.yml")
+DEFAULTS_FILE = {"utility_": "roles/common/defaults/main.yml", "kurulum_": "roles/ortak/defaults/main.yml"}
 
 
 def os_map(name):
-    m = re.search(rf"^{name}:\s*\{{(.*)\}}", defaults, re.M)
+    rel = DEFAULTS_FILE[name.split("_")[0] + "_"]
+    m = re.search(rf"^{name}:\s*\{{(.*)\}}", read(rel), re.M)
     if not m:
-        err(f"roles/ortak/defaults/main.yml içinde {name} yok")
+        err(f"{rel} içinde {name} yok")
         return set()
     return {(d, v) for d, vs in re.findall(r'(\w+):\s*\[([^\]]*)\]', m.group(1)) for v in re.findall(r'"([^"]+)"', vs)}
 
@@ -61,12 +63,16 @@ for p in comp.get("profiles", []):
     have[p["status"]].add((DIST[m.group(1)], m.group(2)))
     if p["id"] not in read("README.md"):
         err(f"README.md profil {p['id']} satırını içermiyor")
-for status, name in (("supported", "kurulum_supported_os"), ("planned", "kurulum_planned_os")):
+for status, name in (("supported", "utility_supported_os"), ("planned", "utility_planned_os")):
     want = os_map(name)
     for item in sorted(want - have[status]):
         err(f"{name} içinde {item} var ama component.json'da {status} profil yok")
     for item in sorted(have[status] - want):
         err(f"component.json {status} profil {item} {name} içinde yok")
+
+kurulum_kapsam = os_map("kurulum_supported_os") | os_map("kurulum_planned_os")
+for item in sorted(kurulum_kapsam - (have["supported"] | have["planned"])):
+    err(f"kurulum kapsamındaki {item} component.json profillerinde yok")
 
 # değişkenler <-> rol varsayılanları
 role_defaults = "\n".join(p.read_text(encoding="utf-8") for p in sorted((ROOT / "roles").glob("*/defaults/main.yml")))
@@ -112,8 +118,8 @@ for name, a in comp["actions"].items():
     for k in out.get("keys", []):
         if not re.search(rf"\b{re.escape(k)}=", text):
             err(f"eylem {name}: sonuç anahtarı '{k}' playbook'ta yazılmıyor")
-    if f"SSHPOCKET_RESULT kurulum.{name}" not in text:
-        err(f"eylem {name}: playbook 'SSHPOCKET_RESULT kurulum.{name}' satırını yazmıyor")
+    if f"SSHPOCKET_RESULT {comp['id']}.{name}" not in text:
+        err(f"eylem {name}: playbook 'SSHPOCKET_RESULT {comp['id']}.{name}' satırını yazmıyor")
 
 if errors:
     print("TUTARSIZLIK:")

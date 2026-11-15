@@ -15,9 +15,9 @@ snap() { lab sh -c 'find /srv/homelab /etc/kurulum /etc/nginx /etc/mysql /etc/re
 onizle() {  # yazilim mod [ek -e ...]
   local yz=$1 mod=$2; shift 2
   local once; once=$(snap)
-  krun preview -e "kurulum_yazilim=$yz" -e "kurulum_mod=$mod" "$@"
+  krun kurulum_onizle -e "kurulum_yazilim=$yz" -e "kurulum_mod=$mod" "$@"
   [ "$status" -eq 0 ]
-  [[ "$(result)" == "SSHPOCKET_RESULT kurulum.preview yazilim=$yz mod=$mod "* ]]
+  [[ "$(result)" == "SSHPOCKET_RESULT utility.kurulum_onizle yazilim=$yz mod=$mod "* ]]
   [ "$(snap)" = "$once" ]
 }
 

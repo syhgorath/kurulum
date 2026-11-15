@@ -32,9 +32,9 @@ setup_file() {
 @test "preview (nginx native) hiçbir şey yazmaz (önce/sonra dosya özeti aynı, paket kurulmaz)" {
   snap='find /srv/homelab /etc/kurulum /etc/nginx /etc/apt -type f 2>/dev/null | sort | xargs -r sha256sum | sha256sum'
   run lab sh -c "$snap"; once=$output
-  krun preview -e kurulum_yazilim=nginx
+  krun kurulum_onizle -e kurulum_yazilim=nginx
   [ "$status" -eq 0 ]
-  [[ "$(result)" == "SSHPOCKET_RESULT kurulum.preview yazilim=nginx mod=native surum=dagitim port=8080 degisen="* ]]
+  [[ "$(result)" == "SSHPOCKET_RESULT utility.kurulum_onizle yazilim=nginx mod=native surum=dagitim port=8080 degisen="* ]]
   run lab sh -c "$snap"
   [ "$output" = "$once" ]
   run lab sh -c '! dpkg -s nginx >/dev/null 2>&1 && echo temiz'
@@ -51,7 +51,7 @@ setup_file() {
 }
 
 @test "mariadb native: kur, ikinci kur changed=0, 127.0.0.1:3306, root unix_socket" {
-  krun preview -e kurulum_yazilim=mariadb
+  krun kurulum_onizle -e kurulum_yazilim=mariadb
   [ "$status" -eq 0 ]
   krun kur -e kurulum_yazilim=mariadb
   [ "$status" -eq 0 ]
@@ -112,7 +112,7 @@ setup_file() {
 }
 
 @test "durum (native karışık) ve TEMİZ ÇIKTI: hiçbir koşuda [WARNING] / [DEPRECATION WARNING] yok" {
-  krun durum
+  krun kurulum_durum
   [ "$status" -eq 0 ]
   run grep -nE '\[(DEPRECATION )?WARNING\]' "$BATS_FILE_TMPDIR/hepsi.log"
   echo "$output" >&3

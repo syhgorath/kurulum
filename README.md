@@ -1,29 +1,51 @@
-# kurulum
+# utility
 
-[sshpocket](https://github.com/syhgorath/sshpocket) paketi: sunucuya **Docker taban kurulumu, nginx, MariaDB ve Redis** kurar (her biri **native** ya da **Docker** modunda), önizleyerek, sürümü sabitleyerek ve **veriyi silmeden**. Menüdeki adı **"Kurulum merkezi"**dir (paket kimliği `kurulum`).
+[sshpocket](https://github.com/syhgorath/sshpocket) paketi (kimlik `utility`; repo adı şimdilik `kurulum`): iki iş bir arada.
+1. **Sunucu ayarları:** saat dilimi, sistem dili (`LANG`) ve **NTP** (chrony) menüden, önizleyerek, yedekleyerek ve onayla. Ayrıntı: [docs/saat-dil-ntp.md](docs/saat-dil-ntp.md) (eski `utility` v0.1.2 belgesi) ve aşağıdaki NTP bölümü.
+2. **Kurulum merkezi:** **Docker taban kurulumu, nginx, MariaDB ve Redis** (her biri **native** ya da **Docker** modunda), önizleyerek, sürümü sabitleyerek ve **veriyi silmeden**.
 
-> **Durum: v0.1.0 (Ubuntu 26.04).** Aşağıdaki "Neyin denendiği" tablosu gerçeği söyler: LAB (Ubuntu 26.04 arm64 konteyner) testleri tamam; **gerçek VM turu (Ubuntu 26.04 amd64) kısmen yapıldı**; V01–V05 düzeltmeleri ve hardening'li iki sıralı tur gerçek VM'de **doğrulanmadı** (sürüm bu haliyle bilinçli çıkarıldı) ([docs/vm-turu.md](docs/vm-turu.md)). Debian 13 henüz hiçbir ortamda denenmedi.
+> **Durum: v0.2.0 (birleştirme sürümü; yayın öncesi).** Eski `utility` paketi (v0.1.2) bu pakete taşındı. Kimlik `utility` olduğundan sonuç satırı öneki `utility.*` oldu (kurulum eylemleri artık `utility.kur` vb.). **Denenmedi (gerçek VM):** birleştirilmiş paket, `ntp_durum`/`ntp_ayarla`, chrony ile `systemd-timesyncd` birlikte etkinken davranış, `utility/durum` anahtar uyumunun sshpocket tarafında. Kurulum eylemleri için v0.1.0 notları geçerli: LAB tam, gerçek VM turu kısmen ([docs/vm-turu.md](docs/vm-turu.md)); V01–V05 düzeltmeleri ve hardening'li tur gerçek VM'de doğrulanmadı. Utility eylemleri v0.1.2'de Ubuntu 26.04 ve Debian 13.7'de gerçek VM'de denendi ([docs/saat-dil-ntp.md](docs/saat-dil-ntp.md)).
 
 ## Profiller
 | Profil | Durum | Not |
 |---|---|---|
-| `ubuntu-26.04` | supported | LAB'da (arm64 konteyner) ve **kısmen gerçek VM'de** (amd64, ubuntutest, doğrudan playbook, hardening'siz) denendi; VM turu sürüyor, ayrıntı aşağıda |
-| `debian-13` | planned | Playbook çalışır olmalı ama **hiçbir yerde denenmedi** (ne konteyner ne VM). VM turunda doğrulanınca `supported` yapılır |
+| `ubuntu-26.04` | supported | Sunucu ayarları (utility eylemleri): LAB ve gerçek VM. Kurulum eylemleri: LAB'da (arm64 konteyner) ve **kısmen gerçek VM'de** (amd64, ubuntutest, doğrudan playbook, hardening'siz); VM turu sürüyor |
+| `debian-13` | supported | **Yalnızca sunucu ayarları (utility eylemleri)**, Debian 13.7'de tek gerçek VM'de denendi. **Kurulum eylemleri (kur/yukselt/kaldir/kurulum_*) Debian 13'te DENENMEDİ**: `kurulum_planned_os` gereği ön kontrol "planned" der ve durur (aşağıdaki not) |
 
 Proxmox VE bilerek reddedilir (`/usr/bin/pveversion` ya da `/etc/pve` varsa `--check` dahil durur); Raspberry Pi kapsam dışı.
 
 ## Eylemler
+Sunucu ayarları (eski `utility`; eylem adları, anahtarlar ve davranış **değişmedi**):
 | Eylem | Etki | Onay | Ne yapar |
 |---|---|---|---|
-| `durum` | salt okunur | – | Ana klasör işareti, Docker durumu, kurulu yazılımlar ve portlar: `ana_durum=… docker=… kurulu=… portlar=…` |
-| `preview` | salt okunur (`--check --diff`) | – | `kur`'un aynı görevleri `--check` ile; `degisen=<N> yukseltme=evet\|hayir` |
-| `kur` | `installs-package`, `changes-config` | `yes-no`, `preview` ön koşul | Seçili yazılımı kurar. İkinci çalıştırma `changed=0`. **Sürümü sessizce değiştirmez** |
-| `yukselt` | + `destructive` | `type-server-name`, `preview` ön koşul | Yalnızca **docker** modunda, daha **yeni** sürüme; önce döküm/yedek. **Geri düşürme yok** |
-| `kaldir` | `changes-config` | `yes-no`, `preview` ön koşul | Servisi durdurur/kaldırır; **veriye dokunmaz** |
+| `durum` | salt okunur, sudo yok | – | `timezone=… locale=… ntp_servis=… ntp_senkron=… offset_ms=… kaynak_sayisi=… sapma_ms=… secili_kaynak=… saat_sapma_kontrolcuye_gore_sn=…`. **sshpocket'in sunucu ekleme sihirbazı ve bağlantı testi bunu çağırır**: anahtar adları korunur, yalnızca eklenebilir |
+| `preview` | salt okunur (`--check --diff`) | – | Saat dilimi/locale/NTP planı: `degisen=<N> plan=…` |
+| `apply` | `installs-package`, `changes-config` | `yes-no`, `preview` ön koşul | Önce yedek, sonra saat dilimi + locale + NTP + saat adımlama |
+| `geri_yukle` | `changes-config` | `yes-no` | Yedekten dosyaları geri yazar |
+| `ntp_durum` | salt okunur, sudo yok | – | **Yeni.** `durum`un NTP kısmının ayrıntılısı: `hizmetler=` (etkin zaman hizmetleri: chrony, systemd-timesyncd, ntp, ntpsec, ntpd-rs; yoksa `yok`), `yonetilen_kaynak=` (utility.sources satırı), `proxmox=evet\|hayir` |
+| `ntp_ayarla` | `installs-package`, `changes-config` | `yes-no`, `preview` ön koşul | **Yeni.** Yalnızca NTP: chrony kurar, `utility_ntp_servers` kaynaklarını drop-in'e yazar, gerekirse tek seferlik saat adımlar; **saat dilimi ve locale'a dokunmaz**. Yedek alır (`geri_yukle` geri alır). Proxmox'ta `--check` dahil reddedilir |
 
-Çıktı tek satırdır: `SSHPOCKET_RESULT kurulum.<eylem> yazilim=… mod=… surum=… port=… degisen=… yukseltme=… gizli=<üretilen parola sayısı>`. Parola değeri hiçbir satıra yazılmaz.
+Kurulum merkezi (eski `kurulum`; **eylem adları değişti**: sonuç öneki `utility.*`, `durum`/`preview` kurulum karşılıkları yeniden adlandırıldı):
+| Eylem | Etki | Onay | Ne yapar |
+|---|---|---|---|
+| `kurulum_durum` | salt okunur | – | Ana klasör işareti, Docker durumu, kurulu yazılımlar ve portlar: `ana_durum=… docker=… kurulu=… portlar=…` (eski `kurulum/durum`) |
+| `kurulum_onizle` | salt okunur (`--check --diff`) | – | `kur`'un aynı görevleri `--check` ile; `degisen=<N> yukseltme=evet\|hayir` (eski `kurulum/preview`; `kur`/`yukselt`/`kaldir` bunu ön koşul ister) |
+| `kur` | `installs-package`, `changes-config` | `yes-no`, `kurulum_onizle` ön koşul | Seçili yazılımı kurar. İkinci çalıştırma `changed=0`. **Sürümü sessizce değiştirmez** |
+| `yukselt` | + `destructive` | `type-server-name`, `kurulum_onizle` ön koşul | Yalnızca **docker** modunda, daha **yeni** sürüme; önce döküm/yedek. **Geri düşürme yok** |
+| `kaldir` | `changes-config` | `yes-no`, `kurulum_onizle` ön koşul | Servisi durdurur/kaldırır; **veriye dokunmaz** |
+
+Kurulum çıktısı tek satırdır: `SSHPOCKET_RESULT utility.<eylem> yazilim=… mod=… surum=… port=… degisen=… yukseltme=… gizli=<üretilen parola sayısı>`. Parola değeri hiçbir satıra yazılmaz. **Envanter grubu `utility`** (eski kurulum grubu `kurulum` idi).
+
+### NTP eylemleri (v0.2.0)
+- **Tek sahip:** yalnızca chrony yazılır (`/etc/chrony/sources.d/utility.sources`, `chrony.conf`'a dokunulmaz). `systemd-timesyncd`/`ntp`/`ntpsec` **kapatılmaz**: biri chrony ile birlikte etkinse `ntp_durum` bunu `hizmetler=a+b` ile gösterir, karar sizindir. Debian 13'te chrony kurulumu timesyncd'yi paket çakışmasıyla kaldırmıştı (v0.1.2 VM turu); Ubuntu 26.04'te birlikte davranışı **denenmedi**.
+- **Değişkenler:** mevcut `utility_ntp_servers`, `utility_ntp_makestep`, `utility_ntp_clock_from_controller` (yeni değişken yok).
+- **Proxmox VE:** `ntp_ayarla` (ve diğer yazan eylemler) `/usr/bin/pveversion` ya da `/etc/pve` varsa **`--check` dahil reddedilir** ve hiçbir şey değişmez: Proxmox kümelerinde (corosync) saat ayarı kritiktir, bu pakette yok. `ntp_durum` yalnız okur ve `proxmox=evet` der. Proxmox bu sürümde kapsam dışıdır.
+- `ntp_ayarla` için `preview` ön koşuldur; `preview` tüm planı (saat dilimi, locale, NTP) gösterir, `ntp_ayarla` yalnız NTP kısmını uygular.
 
 ## Değişkenler (bugünkü sshpocket ile çalışır; katalog/form sshpocket tarafında sonra gelir)
+Sunucu ayarları değişkenleri (`utility_timezone`, `utility_locale`, `utility_ntp_servers`, `utility_ntp_clock_from_controller`, `utility_ntp_makestep`, `utility_backup`, `utility_restore_from`): tür, varsayılan ve anlamları [docs/saat-dil-ntp.md](docs/saat-dil-ntp.md) içinde.
+
+Kurulum değişkenleri:
 | Değişken | Tür | Varsayılan | Anlamı |
 |---|---|---|---|
 | `kurulum_yazilim` | enum | `docker` | `docker` (taban) · `nginx` · `mariadb` · `redis`. Eylemler seçili yazılım için çalışır |

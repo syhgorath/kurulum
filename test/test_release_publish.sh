@@ -8,6 +8,7 @@ command -v git >/dev/null || { bad "git yok"; finish; }
 KEY="$TMP/anahtar"
 ssh-keygen -q -t ed25519 -N "" -C "test-tek-kullanimlik" -f "$KEY"
 V=$(tr -d '[:space:]' < "$ROOT/VERSION")
+ID=$(python3 -I -c 'import json,sys; print(json.load(open(sys.argv[1]))["id"])' "$ROOT/component.json")
 BIN="$TMP/bin"; mkdir -p "$BIN"
 # Sahte gh: cagrilari gh.log'a yazar; davranisi FAKE_* ortam degiskenleri belirler
 cat > "$BIN/gh" <<'GH'
@@ -60,7 +61,7 @@ expect_eq "dry-run cikis 0" "0" "$rc"
 expect_contains "  plan: etiket" "$out" "git tag -a v$V"
 expect_contains "  plan: gh release create" "$out" "gh release create v$V"
 expect_contains "  plan: 6) indeks (--yes ile)" "$out" "6) indeks"
-expect_contains "  plan: 6) satiri --yes gosterir" "$out" "--sig dist/kurulum-$V.tar.gz.sig --yes"
+expect_contains "  plan: 6) satiri --yes gosterir" "$out" "--sig dist/$ID-$V.tar.gz.sig --yes"
 if [ -f "$TMP/index.log" ]; then bad "dry-run indeks betigini CAGIRDI"; else ok "dry-run indeks betigini cagirmadi"; fi
 expect_contains "  [dry-run] hicbir sey yapilmadi" "$out" "[dry-run] hiçbir şey yapılmadı"
 if (cd "$TMP/r" && git rev-parse -q --verify "refs/tags/v$V" >/dev/null); then bad "dry-run etiket OLUSTURDU"; else ok "dry-run etiket olusturmadi"; fi
@@ -89,10 +90,10 @@ echo "-- tam kosu (--yes): etiket+push, gercek imza, Release, ozet dogrulama"
 fresh; out=$(pub --yes); rc=$?
 expect_eq "tam kosu cikis 0" "0" "$rc"
 if git --git-dir="$TMP/o.git" rev-parse -q --verify "refs/tags/v$V" >/dev/null; then ok "etiket origin'e itildi"; else bad "etiket itilmedi: $out"; fi
-if [ -f "$TMP/r/dist/kurulum-$V.tar.gz.sig" ]; then ok "paket ve imza uretildi (gercek release.sh)"; else bad "imza yok: $out"; fi
+if [ -f "$TMP/r/dist/$ID-$V.tar.gz.sig" ]; then ok "paket ve imza uretildi (gercek release.sh)"; else bad "imza yok: $out"; fi
 create=$(cat "$TMP/gh.create" 2>/dev/null)
-expect_contains "  Release: paket yuklendi" "$create" "dist/kurulum-$V.tar.gz"
-expect_contains "  Release: imza yuklendi" "$create" "dist/kurulum-$V.tar.gz.sig"
+expect_contains "  Release: paket yuklendi" "$create" "dist/$ID-$V.tar.gz"
+expect_contains "  Release: imza yuklendi" "$create" "dist/$ID-$V.tar.gz.sig"
 expect_contains "  Release: --verify-tag" "$create" "--verify-tag"
 notes=$(cat "$TMP/gh.notes" 2>/dev/null)
 expect_contains "  Release notlari CHANGELOG'daki surum bolumunden" "$notes" "$(awk -v v="$V" '$0 ~ "^## \\[" v "\\]" {f=1; next} f && NF {print; exit}' "$ROOT/CHANGELOG.md" | cut -c1-40)"
@@ -100,7 +101,7 @@ expect_not_contains "  Release notlari bir sonraki surum basligini icermez" "$no
 expect_contains "  ozet dogrulandi mesaji" "$out" "yüklenen dosyaların özeti yerelle aynı"
 expect_contains "  components.lock bilgisi: SHA-256" "$out" "SHA-256"
 expect_contains "  components.lock bilgisi: imzalayici satiri" "$out" 'namespaces="sshpocket-component"'
-expect_contains "  indeks: ID, surum, depo, arsiv ve imza iletildi" "$(cat "$TMP/index.log" 2>/dev/null)" "kurulum $V sahip/depo --archive dist/kurulum-$V.tar.gz --sig dist/kurulum-$V.tar.gz.sig --yes"
+expect_contains "  indeks: ID, surum, depo, arsiv ve imza iletildi" "$(cat "$TMP/index.log" 2>/dev/null)" "$ID $V sahip/depo --archive dist/$ID-$V.tar.gz --sig dist/$ID-$V.tar.gz.sig --yes"
 expect_contains "  indeks guncellendi mesaji" "$out" "indeks güncellendi"
 expect_not_contains "  lock PR'i artik gerekmez notu" "$out" "SİZ güncelleyin"
 expect_not_contains "  sshpocket reposuna dokunmaz (components.lock yazilmaz)" "$out" "components.lock'a yazıldı"

@@ -17,13 +17,13 @@ setup_file() {
 indeks_boz() { lab sh -c 'rm -rf /var/lib/apt/lists/* && mkdir -p /var/lib/apt/lists/partial /var/lib/apt/periodic && touch /var/lib/apt/periodic/update-success-stamp'; }
 
 @test "V05: normal koşuda saat uyarısı yok" {
-  krun durum
+  krun kurulum_durum
   [ "$status" -eq 0 ]
   [[ "$output" != *"sunucu saati kontrol makinesinden"* ]]
 }
 
 @test "V05: sunucu saati 13 gün geride -> net UYARI (GERİDE, çözüm önerisi), koşu devam eder, hiçbir şey yazılmaz" {
-  krun preview -e kurulum_yazilim=nginx -e ansible_python_interpreter=/usr/local/bin/py-faketime
+  krun kurulum_onizle -e kurulum_yazilim=nginx -e ansible_python_interpreter=/usr/local/bin/py-faketime
   [ "$status" -eq 0 ]
   [[ "$output" == *"UYARI sunucu saati kontrol makinesinden"* && "$output" == *"GERİDE"* ]]
   [[ "$output" == *"sudo date -u -s @"* && "$output" == *"chronyc makestep"* && "$output" == *"utility paketi"* ]]
@@ -33,7 +33,7 @@ indeks_boz() { lab sh -c 'rm -rf /var/lib/apt/lists/* && mkdir -p /var/lib/apt/l
 
 @test "V04: native nginx — indeks boşken kur kendini toparlar (önizleme dahil)" {
   indeks_boz
-  krun preview -e kurulum_yazilim=nginx
+  krun kurulum_onizle -e kurulum_yazilim=nginx
   [ "$status" -eq 0 ]
   indeks_boz
   krun kur -e kurulum_yazilim=nginx

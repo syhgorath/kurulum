@@ -32,10 +32,12 @@ jobs:
           set -eu
           python3 -m venv .venv
           .venv/bin/pip install --quiet --require-hashes --only-binary :all: -r requirements.txt
-          for p in durum preview kur yukselt kaldir; do .venv/bin/ansible-playbook --syntax-check -i test/inventory-local.yml "playbooks/$p.yml"; done
-      - name: Hızlı testler (statik desen denetimi, release betikleri)
+          for p in playbooks/*.yml; do .venv/bin/ansible-playbook --syntax-check -i test/inventory-local.yml "$p"; done
+      - name: Hızlı testler (statik desen denetimi, yedek/saat betiği birim testleri, release betikleri)
         run: |
           set -eu
+          sudo apt-get install -y --no-install-recommends bats >/dev/null
           bash test/test_static.sh
+          bats test/backup.bats test/clock.bats
           bash test/test_release_script.sh
           bash test/test_release_publish.sh

@@ -10,10 +10,10 @@ setup_file() {
 }
 
 @test "durum: salt okunur; ana klasör yeni, Docker yok" {
-  krun durum
+  krun kurulum_durum
   [ "$status" -eq 0 ]
   [ "$(recap_changed)" = 0 ]
-  [ "$(result)" = "SSHPOCKET_RESULT kurulum.durum ana_durum=yeni docker=yok kurulu=yok portlar=yok" ]
+  [ "$(result)" = "SSHPOCKET_RESULT utility.kurulum_durum ana_durum=yeni docker=yok kurulu=yok portlar=yok" ]
 }
 
 @test "Docker yokken docker modu durur ve HİÇBİR ŞEY oluşturmaz" {
@@ -25,9 +25,9 @@ setup_file() {
 }
 
 @test "preview (Docker taban): hiçbir şey yazmaz" {
-  krun preview -e kurulum_yazilim=docker
+  krun kurulum_onizle -e kurulum_yazilim=docker
   [ "$status" -eq 0 ]
-  [[ "$(result)" == "SSHPOCKET_RESULT kurulum.preview yazilim=docker mod=native surum=resmi port=0 degisen="* ]]
+  [[ "$(result)" == "SSHPOCKET_RESULT utility.kurulum_onizle yazilim=docker mod=native surum=resmi port=0 degisen="* ]]
   run lab sh -c 'test ! -e /srv/homelab && test ! -e /etc/apt/sources.list.d/docker.sources && ! command -v docker && echo temiz'
   [ "$output" = temiz ]
 }
@@ -47,12 +47,12 @@ setup_file() {
 }
 
 @test "nginx docker: kur, 200 döner, ikinci kur changed=0, port 127.0.0.1" {
-  krun preview -e kurulum_yazilim=nginx -e kurulum_mod=docker
+  krun kurulum_onizle -e kurulum_yazilim=nginx -e kurulum_mod=docker
   [ "$status" -eq 0 ]
   run lab sh -c 'test ! -e /srv/homelab/nginx && echo temiz'; [ "$output" = temiz ]
   krun kur -e kurulum_yazilim=nginx -e kurulum_mod=docker
   [ "$status" -eq 0 ]
-  [ "$(result)" = "SSHPOCKET_RESULT kurulum.kur yazilim=nginx mod=docker surum=1.30.6 port=8080 degisen=$(grep -o 'degisen=[0-9]*' <<<"$(result)" | cut -d= -f2) yukseltme=hayir gizli=0" ]
+  [ "$(result)" = "SSHPOCKET_RESULT utility.kur yazilim=nginx mod=docker surum=1.30.6 port=8080 degisen=$(grep -o 'degisen=[0-9]*' <<<"$(result)" | cut -d= -f2) yukseltme=hayir gizli=0" ]
   run lab bash -c 'exec 3<>/dev/tcp/127.0.0.1/8080; printf "GET / HTTP/1.0\r\n\r\n" >&3; head -1 <&3; docker ps --format "{{.Ports}}"'
   [[ "${lines[0]}" == *"200"* && "${lines[1]}" == "127.0.0.1:8080->80/tcp" ]]
   krun kur -e kurulum_yazilim=nginx -e kurulum_mod=docker
@@ -75,7 +75,7 @@ setup_file() {
   krun kur -e kurulum_yazilim=mariadb -e kurulum_mod=docker -e kurulum_mariadb_surum=11.4.13
   [ "$status" -ne 0 ]
   [[ "$output" == *"kur sürümü sessizce değiştirmez"* ]]
-  krun preview -e kurulum_yazilim=mariadb -e kurulum_mod=docker -e kurulum_mariadb_surum=11.4.13
+  krun kurulum_onizle -e kurulum_yazilim=mariadb -e kurulum_mod=docker -e kurulum_mariadb_surum=11.4.13
   [ "$status" -eq 0 ]
   [[ "$(result)" == *"surum=11.4.13"*"yukseltme=evet"* ]]
 }
@@ -118,21 +118,21 @@ setup_file() {
 }
 
 @test "port çakışması: başkasına verilmiş port reddedilir ve boş port önerilir" {
-  krun preview -e kurulum_yazilim=redis -e kurulum_mod=docker -e kurulum_redis_surum=7.4.12 -e kurulum_redis_port=3306
+  krun kurulum_onizle -e kurulum_yazilim=redis -e kurulum_mod=docker -e kurulum_redis_surum=7.4.12 -e kurulum_redis_port=3306
   [ "$status" -ne 0 ]
   [[ "$output" == *"3306 portu mariadb uygulamasına verilmiş"* && "$output" == *"Boş port önerisi: 3307"* ]]
 }
 
 @test "bir yazılım için tek mod: docker kurulu yazılım native istenince durur" {
-  krun preview -e kurulum_yazilim=nginx -e kurulum_mod=native
+  krun kurulum_onizle -e kurulum_yazilim=nginx -e kurulum_mod=native
   [ "$status" -ne 0 ]
   [[ "$output" == *"tek mod"* ]]
 }
 
 @test "ana klasör uyuşmazlığı: sunucudaki kaynaktır; durur, yerelde yeni klasör açmaz" {
-  krun durum -e kurulum_ana_klasor=/srv/baska
+  krun kurulum_durum -e kurulum_ana_klasor=/srv/baska
   [ "$status" -eq 0 ]
-  [[ "$(result)" == "SSHPOCKET_RESULT kurulum.durum ana_durum=uyusmuyor "* ]]
+  [[ "$(result)" == "SSHPOCKET_RESULT utility.kurulum_durum ana_durum=uyusmuyor "* ]]
   krun kur -e kurulum_yazilim=nginx -e kurulum_mod=docker -e kurulum_ana_klasor=/srv/baska
   [ "$status" -ne 0 ]
   [[ "$output" == *"ana klasör sunucuda /srv/homelab, yerelde /srv/baska"* ]]
@@ -141,7 +141,7 @@ setup_file() {
 
 @test "yasak ana klasör yolu reddedilir" {
   for p in / /etc /usr/local/x "/srv/a b" ../x /var/lib/docker/x; do
-    krun durum -e "{\"kurulum_ana_klasor\":\"$p\"}"
+    krun kurulum_durum -e "{\"kurulum_ana_klasor\":\"$p\"}"
     [ "$status" -ne 0 ]
   done
 }
@@ -188,9 +188,9 @@ setup_file() {
 }
 
 @test "durum: kurulu yazılımlar ve portlar" {
-  krun durum
+  krun kurulum_durum
   [ "$status" -eq 0 ]
-  [[ "$(result)" == "SSHPOCKET_RESULT kurulum.durum ana_durum=tamam docker=resmi kurulu=docker:native+mariadb:docker+nginx:docker+redis:docker portlar=mariadb:3306+nginx:8080+redis:6379" ]]
+  [[ "$(result)" == "SSHPOCKET_RESULT utility.kurulum_durum ana_durum=tamam docker=resmi kurulu=docker:native+mariadb:docker+nginx:docker+redis:docker portlar=mariadb:3306+nginx:8080+redis:6379" ]]
 }
 
 @test "TEMİZ ÇIKTI: hiçbir koşuda [WARNING] / [DEPRECATION WARNING] yok" {

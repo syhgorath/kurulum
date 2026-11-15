@@ -1,0 +1,33 @@
+# NTP ayarı (yalnız NTP + saat sapması; saat dilimi ve locale'a DOKUNMAZ). Önce plan (salt okunur), sonra YEDEK, sonra değişiklik. İkinci koşuda plan boş: changed=0.
+# Proxmox VE preflight'ta --check dahil REDDEDİLİR (corosync kümelerinde saat ayarı kritik; bu pakette yok, hiçbir şey değişmez).
+# Sonuç satırı: SSHPOCKET_RESULT utility.ntp_ayarla degisen=<N> plan=<ad+ad|yok> yedek=evet|hayir
+- name: utility NTP ayarla (chrony kaynakları, saat sapması)
+  hosts: utility
+  gather_facts: true
+  gather_subset: [min]
+  become: true
+  tasks:
+    - name: Preflight
+      ansible.builtin.include_role: {name: common, tasks_from: preflight}
+    - name: Plan NTP
+      ansible.builtin.include_role: {name: ntp, tasks_from: plan}
+    - name: Interaction warnings
+      ansible.builtin.include_role: {name: common, tasks_from: warnings}
+    - name: Backup
+      ansible.builtin.include_role: {name: common, tasks_from: backup}
+    - name: Apply NTP
+      ansible.builtin.include_role: {name: ntp, tasks_from: apply}
+    - name: Step the clock (chrony)
+      ansible.builtin.include_role: {name: ntp, tasks_from: step}
+    - name: Show the plan
+      ansible.builtin.include_role: {name: common, tasks_from: result}
+    - name: Result line
+      ansible.builtin.debug:
+        msg: >-
+          SSHPOCKET_RESULT utility.ntp_ayarla degisen={{ utility_plan | length }} plan={{ (utility_plan | join('+')) or 'yok' }}
+          yedek={{ 'evet' if utility_backup_dir is defined else 'hayir' }}
+  handlers:
+    - name: Restart chrony
+      ansible.builtin.systemd:
+        name: chrony
+        state: restarted
